@@ -1,0 +1,9 @@
+{
+  "name": "cognitive-annotation",
+  "description": "4-agent cognitive extraction pipeline. Annotates conversation transcripts with executive function, metacognition, memory & reasoning, and user mental model behaviors.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Haro3573"
+  },
+  "repository": "https://github.com/Haro3573/cognitive-annotation-plugin"
+}
