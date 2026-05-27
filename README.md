@@ -7,14 +7,8 @@ A Claude Code plugin that annotates conversation transcripts with cognitive beha
 Run these two commands in Claude Code:
 
 ```
-/plugin marketplace add github:Haro3573/cognitive-annotation-plugin
+/plugin marketplace add Haro3573/cognitive-annotation-plugin
 /plugin install cognitive-annotation
-```
-
-Or install in one step by specifying the marketplace explicitly:
-
-```
-/plugin install cognitive-annotation@github:Haro3573/cognitive-annotation-plugin
 ```
 
 ## Usage
