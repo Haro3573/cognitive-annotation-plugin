@@ -4,8 +4,17 @@ A Claude Code plugin that annotates conversation transcripts with cognitive beha
 
 ## Installation
 
+Run these two commands in Claude Code:
+
 ```
-/plugin install github:Haro3573/cognitive-annotation-plugin
+/plugin marketplace add github:Haro3573/cognitive-annotation-plugin
+/plugin install cognitive-annotation
+```
+
+Or install in one step by specifying the marketplace explicitly:
+
+```
+/plugin install cognitive-annotation@github:Haro3573/cognitive-annotation-plugin
 ```
 
 ## Usage
@@ -85,9 +94,9 @@ User
 
 ### Components
 
-**`skills/annotate/SKILL.md`** — the entry point. Runs in the main Claude Code conversation thread. Resolves the transcript (from a file path, inline text, or conversation context), then sequentially invokes each of the four subagents via the `Agent` tool, passing the full transcript in each call. Combines the four results into a single JSON structure.
+**`plugins/cognitive-annotation/skills/annotate/SKILL.md`** — the entry point. Runs in the main Claude Code conversation thread. Resolves the transcript (from a file path, inline text, or conversation context), then sequentially invokes each of the four subagents via the `Agent` tool, passing the full transcript in each call. Combines the four results into a single JSON structure.
 
-**`agents/*.md`** — four subagent definitions. Each runs in its own isolated context window with:
+**`plugins/cognitive-annotation/agents/*.md`** — four subagent definitions. Each runs in its own isolated context window with:
 - A specialized system prompt grounded in cognitive psychology theory
 - `tools: []` — no file access; the transcript arrives entirely in the prompt
 - `model: sonnet` — Sonnet balances annotation depth with speed

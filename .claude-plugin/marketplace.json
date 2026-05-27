@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cognitive-annotation",
+  "description": "4-agent cognitive extraction pipeline for conversation transcripts",
+  "owner": {
+    "name": "Haro3573"
+  },
+  "plugins": [
+    {
+      "name": "cognitive-annotation",
+      "description": "Annotates conversation transcripts with executive function, metacognition, memory & reasoning, and user mental model behaviors",
+      "source": "./plugins/cognitive-annotation",
+      "category": "analysis"
+    }
+  ]
+}
