@@ -130,6 +130,14 @@ This plugin is the Claude Code-native form of the same pipeline. A standalone Py
 
 ### Theoretical grounding
 
+The four cognitive domains extracted by this plugin are derived from the Cognitive Taxonomy introduced in:
+
+> Burnell, R., Yamamori, Y., Firat, O., Olszewska, K., Hughes-Fitt, S., Kelly, O., Galatzer-Levy, I. R., Morris, M. R., Dafoe, A., Snyder, A. M., Goodman, N. D., Botvinick, M., & Legg, S. (2026). *Measuring Progress Toward AGI: A Cognitive Framework*. Google DeepMind. [PDF](https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/measuring-progress-toward-agi/measuring-progress-toward-agi-a-cognitive-framework.pdf)
+
+That paper deconstructs general intelligence into 10 cognitive faculties drawing from psychology, neuroscience, and cognitive science. The four agents in this plugin operationalize a subset of those faculties as annotation targets for human–AI conversation transcripts.
+
+Each agent's extraction criteria are additionally grounded in the sub-field literature for its domain:
+
 | Agent | Primary theory |
 |---|---|
 | Executive Function | Updating / Inhibition / Shifting model (Miyake et al., 2000) |
