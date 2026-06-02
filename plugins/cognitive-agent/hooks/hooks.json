@@ -1,6 +1,17 @@
 {
   "description": "Cognitive agent hooks — auto-detects .jsonl session files, shows active status, injects profile context after each AI response",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/refresh-session-index.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

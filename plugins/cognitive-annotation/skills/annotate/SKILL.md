@@ -8,8 +8,6 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 
 **Steps**:
 
-0. **Update session index**: Call MCP tool `collect_sessions` with no arguments. This writes `session_collection/raw/sessions.json` mapping every project to its `.jsonl` files — used for fast UUID resolution in the next step.
-
 1. Determine the transcript source:
    - If `$ARGUMENTS` is a bare filename (with or without leading `@`) ending in `.jsonl` → strip the `@` if present. Use the Bash tool to look up the filename in the index:
      ```bash
