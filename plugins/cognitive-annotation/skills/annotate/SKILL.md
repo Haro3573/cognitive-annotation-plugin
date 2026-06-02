@@ -9,11 +9,11 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 **Steps**:
 
 1. Determine the transcript source:
-   - If `$ARGUMENTS` looks like a UUID (e.g. `@5261424b-ec55-4124-81b6-759f36d2d567.jsonl` or a bare hex-dash filename ending in `.jsonl`) → it is a Claude Code session file. Strip the leading `@` if present, then resolve the full path with exactly this Bash command:
-     ```bash
-     ls ~/.claude/projects/*/<uuid>.jsonl 2>/dev/null | head -1
-     ```
-     Take the output as the full path and pass it to `Read`. Do **not** use `find` anywhere — the `ls` glob is sufficient.
+   - If `$ARGUMENTS` is a bare filename (with or without leading `@`) ending in `.jsonl` → strip the `@`, then resolve in this order, stopping at the first hit:
+     1. `$CLAUDE_PROJECT_DIR/<filename>` — file placed directly in the project root
+     2. `find $CLAUDE_PROJECT_DIR -maxdepth 4 -name "<filename>" 2>/dev/null | head -1` — file anywhere inside the project
+     3. `ls ~/.claude/projects/*/<filename> 2>/dev/null | head -1` — Claude session archive
+     Pass the resolved absolute path to `Read`. Do **not** search outside these three locations.
    - If `$ARGUMENTS` is a full file path → read the file directly.
    - If `$ARGUMENTS` is plain text → use it directly as the transcript.
    - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context.
