@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cognitive-annotation",
+  "description": "Cognitive alignment toolkit: annotation pipeline + real-time suggestion agent",
+  "owner": {
+    "name": "Haro3573"
+  },
+  "plugins": [
+    {
+      "name": "cognitive-annotation",
+      "description": "Annotates conversation transcripts with executive function, metacognition, memory & reasoning, and user mental model behaviors",
+      "source": "./plugins/cognitive-annotation",
+      "category": "analysis"
+    },
+    {
+      "name": "cognitive-agent",
+      "description": "Real-time cognitive alignment suggestions — fires at end of each AI response and surfaces a lightweight ≤3-sentence insight shaped by the user's Cognitive Profile snapshot",
+      "source": "./plugins/cognitive-agent",
+      "category": "productivity"
+    }
+  ]
+}
