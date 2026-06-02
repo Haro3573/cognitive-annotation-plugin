@@ -6,6 +6,7 @@ COGNITIVE_DIR="$CLAUDE_PROJECT_DIR/.cognitive"
 SESSION_JSON="$COGNITIVE_DIR/session.json"
 SESSION_INDEX="$COGNITIVE_DIR/session.index.md"
 DISABLED_FLAG="$COGNITIVE_DIR/.disabled"
+SUGGESTING_FLAG="$COGNITIVE_DIR/.suggesting"
 
 # Check session-scoped disabled flag
 if [[ -f "$DISABLED_FLAG" ]]; then
@@ -23,6 +24,20 @@ fi
 if [[ ! -f "$SESSION_JSON" || ! -f "$SESSION_INDEX" ]]; then
   echo '{"decision": "approve"}'
   exit 0
+fi
+
+# Loop control: if we blocked on the previous Stop to request an insight, now approve
+if [[ -f "$SUGGESTING_FLAG" ]]; then
+  CURRENT_TIME=$(date +%s)
+  FLAG_TIME=$(cat "$SUGGESTING_FLAG" 2>/dev/null || echo 0)
+  if (( CURRENT_TIME - FLAG_TIME < 300 )); then
+    # Recent flag — Claude just generated the insight, approve the stop
+    rm -f "$SUGGESTING_FLAG"
+    echo '{"decision": "approve"}'
+    exit 0
+  fi
+  # Stale flag (crash between block and approve) — remove and fall through
+  rm -f "$SUGGESTING_FLAG"
 fi
 
 # Sliding Triad: last 3 user/assistant turns from transcript
@@ -43,16 +58,19 @@ fi
 
 INDEX=$(cat "$SESSION_INDEX")
 
-MSG="💡 Cognitive Agent active.
+# Write timestamp for loop control
+date +%s > "$SUGGESTING_FLAG"
 
-## Recent turns (Sliding Triad)
-${SLIDING_TRIAD}
+MSG="Output a cognitive insight for the user. Rules:
+- Start with exactly '💡' on the first line
+- 1-3 sentences only
+- Reference a specific pattern from the profile below — be concrete, not generic
+- No preamble, no follow-up questions, nothing else
 
-## Cognitive Index (excerpt_id | category | subcategory | user_text snippet)
+## Cognitive Profile (excerpt_id | category | subcategory | behavior)
 ${INDEX}
 
-## Full records
-Available at: ${SESSION_JSON}
-Read specific excerpt_ids from that file if relevant to the current topic."
+## Recent Conversation
+${SLIDING_TRIAD}"
 
-jq -n --arg msg "$MSG" '{"decision": "approve", "systemMessage": $msg}'
+jq -n --arg msg "$MSG" '{"decision": "block", "systemMessage": $msg}'
