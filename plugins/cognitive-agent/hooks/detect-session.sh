@@ -65,7 +65,14 @@ if [[ "$ABS" != "$HOME_REAL/"* ]]; then
   exit 0
 fi
 
-PARSED_OUT="${ABS%.jsonl}_parsed.json"
+# Use pre-parsed cache from setup if available; fall back to sibling _parsed.json
+UUID=$(basename "$ABS" .jsonl)
+CACHE_FILE="${CLAUDE_PROJECT_DIR}/session_collection/parsed/${UUID}.json"
+if [[ -f "$CACHE_FILE" ]]; then
+  PARSED_OUT="$CACHE_FILE"
+else
+  PARSED_OUT="${ABS%.jsonl}_parsed.json"
+fi
 
 # Evaluators: project-relative path, walk-up fallback for non-standard layouts
 EVALUATORS_DIR="${CLAUDE_PROJECT_DIR}/pipeline/outcome_processor/evaluators"
@@ -89,12 +96,16 @@ MSG="A Claude session file was detected inside this project: ${ABS}
 Run the full Cognitive Alignment DB Block pipeline automatically. Do NOT ask the user for confirmation. Execute these 6 steps in order, reporting progress after each:
 
 STEP 1 — Parse:
-Call MCP tool parse_session with:
-  file_path   = \"${ABS}\"
-  output_file = \"${PARSED_OUT}\"
-Extract from the response:
-  conversation_name = response.conversations[0]
-  context_history   = response.messages
+Check if a pre-parsed cache file exists at: ${PARSED_OUT}
+- If it exists: read it directly (JSON array of ParsedMessage objects).
+  Set context_history = contents of that file.
+  Set conversation_name = context_history[0].conversation_name
+- If it does not exist: call MCP tool parse_session with:
+    file_path   = \"${ABS}\"
+    output_file = \"${PARSED_OUT}\"
+  Extract from the response:
+    conversation_name = response.conversations[0]
+    context_history   = response.messages
 
 STEP 2 — Annotate:
 Format context_history as a readable transcript: one line per message as \"ROLE: content\" (skip messages with empty content).
