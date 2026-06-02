@@ -11,7 +11,7 @@ if [[ -z "$RAW" ]]; then
   exit 0
 fi
 
-# Resolve to absolute path (relative paths anchor to CLAUDE_PROJECT_DIR)
+# Resolve absolute path — anchor relative paths to CLAUDE_PROJECT_DIR
 if [[ "$RAW" == /* ]]; then
   ABS="$RAW"
 elif [[ "$RAW" == ~/* ]]; then
@@ -20,35 +20,29 @@ else
   ABS="$CLAUDE_PROJECT_DIR/$RAW"
 fi
 
-# Normalize (resolves .. and symlinks)
 ABS=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$ABS" 2>/dev/null) || exit 0
 
-# Allow files inside CLAUDE_PROJECT_DIR, a sibling Sessions/ folder, or ~/.claude/projects/
-PROJECT=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
-SIBLING_SESSIONS=$(python3 -c "import os,sys; print(os.path.realpath(os.path.join(os.path.dirname(sys.argv[1]), 'Sessions')))" "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
-CLAUDE_SESSIONS=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('~/.claude/projects')))" 2>/dev/null) || exit 0
-if [[ "$ABS" != "$PROJECT/"* && "$ABS" != "$SIBLING_SESSIONS/"* && "$ABS" != "$CLAUDE_SESSIONS/"* ]]; then
-  exit 0
-fi
-
-# If file not found at resolved path and looks like a bare UUID, search sibling Sessions/ then ~/.claude/projects/
-if [[ ! -f "$ABS" && "$RAW" =~ ^[0-9a-f-]+\.jsonl$ ]]; then
-  FOUND=$(find "$SIBLING_SESSIONS" -maxdepth 1 -name "$RAW" 2>/dev/null | head -1)
-  [[ -z "$FOUND" ]] && FOUND=$(find "$CLAUDE_SESSIONS" -maxdepth 2 -name "$RAW" 2>/dev/null | head -1)
-  if [[ -n "$FOUND" ]]; then
-    ABS="$FOUND"
+# If not found at resolved path, search: project dir first, then user home (depth-limited)
+if [[ ! -f "$ABS" ]]; then
+  FILENAME=$(basename "$RAW")
+  ABS=$(find "$CLAUDE_PROJECT_DIR" -name "$FILENAME" 2>/dev/null | head -1)
+  if [[ -z "$ABS" ]]; then
+    ABS=$(find "$HOME" -maxdepth 6 -name "$FILENAME" 2>/dev/null | head -1)
   fi
 fi
 
-# Must exist
+# Must exist and be inside $HOME (privacy guard)
 if [[ ! -f "$ABS" ]]; then
+  exit 0
+fi
+HOME_REAL=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('~')))" 2>/dev/null) || exit 0
+if [[ "$ABS" != "$HOME_REAL/"* ]]; then
   exit 0
 fi
 
 PARSED_OUT="${ABS%.jsonl}_parsed.json"
 
-# Evaluators live at pipeline/outcome_processor/evaluators relative to project root.
-# Walk-up from the .jsonl is kept as fallback for non-standard layouts.
+# Evaluators: project-relative path, walk-up fallback for non-standard layouts
 EVALUATORS_DIR="${CLAUDE_PROJECT_DIR}/pipeline/outcome_processor/evaluators"
 if [[ ! -d "$EVALUATORS_DIR" ]]; then
   SEARCH_DIR=$(dirname "$ABS")
