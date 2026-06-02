@@ -23,16 +23,18 @@ fi
 # Normalize (resolves .. and symlinks)
 ABS=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$ABS" 2>/dev/null) || exit 0
 
-# Allow files inside CLAUDE_PROJECT_DIR or inside ~/.claude/projects/ (Claude session files)
+# Allow files inside CLAUDE_PROJECT_DIR, a sibling Sessions/ folder, or ~/.claude/projects/
 PROJECT=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
+SIBLING_SESSIONS=$(python3 -c "import os,sys; print(os.path.realpath(os.path.join(os.path.dirname(sys.argv[1]), 'Sessions')))" "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
 CLAUDE_SESSIONS=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('~/.claude/projects')))" 2>/dev/null) || exit 0
-if [[ "$ABS" != "$PROJECT/"* && "$ABS" != "$CLAUDE_SESSIONS/"* ]]; then
+if [[ "$ABS" != "$PROJECT/"* && "$ABS" != "$SIBLING_SESSIONS/"* && "$ABS" != "$CLAUDE_SESSIONS/"* ]]; then
   exit 0
 fi
 
-# If file not found at resolved path and looks like a bare UUID, search ~/.claude/projects/
+# If file not found at resolved path and looks like a bare UUID, search sibling Sessions/ then ~/.claude/projects/
 if [[ ! -f "$ABS" && "$RAW" =~ ^[0-9a-f-]+\.jsonl$ ]]; then
-  FOUND=$(find "$CLAUDE_SESSIONS" -name "$RAW" 2>/dev/null | head -1)
+  FOUND=$(find "$SIBLING_SESSIONS" -maxdepth 1 -name "$RAW" 2>/dev/null | head -1)
+  [[ -z "$FOUND" ]] && FOUND=$(find "$CLAUDE_SESSIONS" -maxdepth 2 -name "$RAW" 2>/dev/null | head -1)
   if [[ -n "$FOUND" ]]; then
     ABS="$FOUND"
   fi
