@@ -11,20 +11,18 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 1. Get the transcript:
    - If `$ARGUMENTS` is a full file path → read it directly.
    - If `$ARGUMENTS` is text → use it directly as the transcript.
-   - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context and use it. If nothing is in context, read `$CLAUDE_PROJECT_DIR/session_collection/raw/sessions.json` and present the session list to the user:
+   - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context and use it. If nothing is in context, read `$CLAUDE_PROJECT_DIR/session_collection/raw/sessions.json` and present each session as a mentionable `@`-path pointing to its pre-parsed file in `session_collection/parsed/`:
      ```
-     Available sessions:
+     Available sessions — mention one to annotate it:
 
      <project-name>
-       [1] uuid-a.jsonl
-       [2] uuid-b.jsonl
+       @session_collection/parsed/uuid-a.json
+       @session_collection/parsed/uuid-b.json
 
      <project-name-2>
-       [3] uuid-c.jsonl
-
-     Which session would you like to annotate? (enter a number or paste a path)
+       @session_collection/parsed/uuid-c.json
      ```
-     Once the user picks a number, resolve the path as `~/.claude/projects/<project>/<filename>` and read the file. If `sessions.json` does not exist, ask: "Please provide a transcript or file path."
+     Stop and wait for the user to mention a file. When they do, that file is the transcript — read it and proceed to Step 2. If `sessions.json` does not exist, ask: "Please provide a transcript or file path."
 
 2. Invoke all 4 extraction agents one by one using the Agent tool, passing the full transcript in each prompt:
    - Use the **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
