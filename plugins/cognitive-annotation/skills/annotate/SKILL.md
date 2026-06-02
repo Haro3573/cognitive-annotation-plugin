@@ -9,10 +9,10 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 **Steps**:
 
 1. Determine the transcript source:
-   - If `$ARGUMENTS` is a bare filename (with or without leading `@`) ending in `.jsonl` → strip the `@` if present. **Use the Bash tool** to locate the file with these two commands in order, stopping at the first non-empty result:
-     1. `find "$CLAUDE_PROJECT_DIR" -name "<filename>" 2>/dev/null | head -1`
-     2. `find "$HOME" -maxdepth 6 -name "<filename>" 2>/dev/null | head -1`
-     Take the result as the absolute path and pass it to `Read`. Do **not** guess or use prior context for the path — always run these commands.
+   - If `$ARGUMENTS` is a bare filename (with or without leading `@`) ending in `.jsonl` → strip the `@` if present. **Use the Bash tool** to run these commands in order, stopping at the first non-empty result:
+     1. `find "${COGNITIVE_SESSIONS_DIR:-}" -maxdepth 2 -name "<filename>" 2>/dev/null | head -1` — only if `$COGNITIVE_SESSIONS_DIR` is set
+     2. `find "$CLAUDE_PROJECT_DIR" -maxdepth 4 -name "<filename>" 2>/dev/null | head -1`
+     Take the result as the absolute path and pass it to `Read`. Do **not** guess paths or use prior context — always run these Bash commands.
    - If `$ARGUMENTS` is a full file path → read the file directly.
    - If `$ARGUMENTS` is plain text → use it directly as the transcript.
    - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context.

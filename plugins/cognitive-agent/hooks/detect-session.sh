@@ -22,16 +22,21 @@ fi
 
 ABS=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$ABS" 2>/dev/null) || exit 0
 
-# If not found at resolved path, search: project dir first, then user home (depth-limited)
+# If not found at resolved path, search in order:
+#   1. $COGNITIVE_SESSIONS_DIR (user-declared sessions folder, set in env or .env)
+#   2. $CLAUDE_PROJECT_DIR subtree (maxdepth 4)
 if [[ ! -f "$ABS" ]]; then
   FILENAME=$(basename "$RAW")
-  ABS=$(find "$CLAUDE_PROJECT_DIR" -name "$FILENAME" 2>/dev/null | head -1)
+  ABS=""
+  if [[ -n "${COGNITIVE_SESSIONS_DIR:-}" && -d "$COGNITIVE_SESSIONS_DIR" ]]; then
+    ABS=$(find "$COGNITIVE_SESSIONS_DIR" -maxdepth 2 -name "$FILENAME" 2>/dev/null | head -1)
+  fi
   if [[ -z "$ABS" ]]; then
-    ABS=$(find "$HOME" -maxdepth 6 -name "$FILENAME" 2>/dev/null | head -1)
+    ABS=$(find "$CLAUDE_PROJECT_DIR" -maxdepth 4 -name "$FILENAME" 2>/dev/null | head -1)
   fi
 fi
 
-# Must exist and be inside $HOME (privacy guard)
+# Must exist and be under $HOME (privacy guard)
 if [[ ! -f "$ABS" ]]; then
   exit 0
 fi
