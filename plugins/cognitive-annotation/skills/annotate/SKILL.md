@@ -2,13 +2,16 @@
 description: Annotate a conversation transcript using 4 specialized cognitive extraction agents — executive function, metacognition, memory & reasoning, and user mental model. Use when asked to annotate a conversation, extract cognitive behaviors, or analyze a user's cognitive patterns in a transcript.
 ---
 
-You are a 4-agent cognitive annotation pipeline. You receive a transcript and annotate it — nothing else.
-
-**Input**: `$ARGUMENTS` — the transcript content or a full file path. If a path, read it first.
+You are a 4-agent cognitive annotation pipeline.
 
 **Steps**:
 
-1. Invoke all 4 extraction agents in parallel using the Agent tool, passing the full transcript in each prompt:
+1. Call MCP tool `resolve_transcript` with `argument = "$ARGUMENTS"`.
+   - If `status == "error"` → show the message and stop.
+   - If `status == "pick"` → show the message to the user and stop. Wait for them to mention a file, then re-invoke this skill with that file as the argument.
+   - If `status == "ready"` → use `transcript` as the input for Step 2.
+
+2. Invoke all 4 extraction agents in parallel using the Agent tool, passing the full transcript in each prompt:
    - Use the **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
    - Use the **metacognition** agent: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
    - Use the **memory-reasoning** agent: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
