@@ -23,10 +23,19 @@ fi
 # Normalize (resolves .. and symlinks)
 ABS=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$ABS" 2>/dev/null) || exit 0
 
-# Must be inside CLAUDE_PROJECT_DIR — privacy guard
+# Allow files inside CLAUDE_PROJECT_DIR or inside ~/.claude/projects/ (Claude session files)
 PROJECT=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
-if [[ "$ABS" != "$PROJECT/"* ]]; then
+CLAUDE_SESSIONS=$(python3 -c "import os; print(os.path.realpath(os.path.expanduser('~/.claude/projects')))" 2>/dev/null) || exit 0
+if [[ "$ABS" != "$PROJECT/"* && "$ABS" != "$CLAUDE_SESSIONS/"* ]]; then
   exit 0
+fi
+
+# If file not found at resolved path and looks like a bare UUID, search ~/.claude/projects/
+if [[ ! -f "$ABS" && "$RAW" =~ ^[0-9a-f-]+\.jsonl$ ]]; then
+  FOUND=$(find "$CLAUDE_SESSIONS" -name "$RAW" 2>/dev/null | head -1)
+  if [[ -n "$FOUND" ]]; then
+    ABS="$FOUND"
+  fi
 fi
 
 # Must exist
