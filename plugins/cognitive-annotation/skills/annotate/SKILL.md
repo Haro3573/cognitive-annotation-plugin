@@ -9,7 +9,12 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 **Steps**:
 
 1. Determine the transcript source:
-   - If `$ARGUMENTS` is a file path → read the file.
+   - If `$ARGUMENTS` looks like a UUID (e.g. `@5261424b-ec55-4124-81b6-759f36d2d567.jsonl` or a bare hex-dash filename ending in `.jsonl`) → it is a Claude Code session file. Locate it with:
+     ```
+     ls ~/.claude/projects/*/<uuid>.jsonl
+     ```
+     Use the first match. Do **not** do a broad `find` over the home directory.
+   - If `$ARGUMENTS` is a full file path → read the file directly.
    - If `$ARGUMENTS` is plain text → use it directly as the transcript.
    - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context.
    - If nothing is available → **stop and ask**: "Please provide a transcript. You can either paste it here or give me a file path, e.g. `/cognitive-annotation:annotate sample_conversation.json`."
