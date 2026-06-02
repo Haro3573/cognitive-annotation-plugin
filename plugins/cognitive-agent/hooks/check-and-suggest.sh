@@ -5,19 +5,13 @@ HOOK_INPUT=$(cat)
 COGNITIVE_DIR="$CLAUDE_PROJECT_DIR/.cognitive"
 SESSION_JSON="$COGNITIVE_DIR/session.json"
 SESSION_INDEX="$COGNITIVE_DIR/session.index.md"
-DISABLED_FLAG="$COGNITIVE_DIR/.disabled"
+ACTIVE_FLAG="$COGNITIVE_DIR/.active"
 SUGGESTING_FLAG="$COGNITIVE_DIR/.suggesting"
 
-# Check session-scoped disabled flag
-if [[ -f "$DISABLED_FLAG" ]]; then
-  CURRENT_SESSION=$(echo "$HOOK_INPUT" | jq -r '.session_id // ""')
-  DISABLED_SESSION=$(cat "$DISABLED_FLAG")
-  if [[ "$CURRENT_SESSION" == "$DISABLED_SESSION" ]]; then
-    echo '{"decision": "approve"}'
-    exit 0
-  fi
-  # Stale flag from a previous session — clean it up
-  rm -f "$DISABLED_FLAG"
+# Only fire when explicitly activated by /cognitive-agent:start
+if [[ ! -f "$ACTIVE_FLAG" ]]; then
+  echo '{"decision": "approve"}'
+  exit 0
 fi
 
 # Silent no-op when profile files are absent
@@ -31,7 +25,6 @@ if [[ -f "$SUGGESTING_FLAG" ]]; then
   CURRENT_TIME=$(date +%s)
   FLAG_TIME=$(cat "$SUGGESTING_FLAG" 2>/dev/null || echo 0)
   if (( CURRENT_TIME - FLAG_TIME < 300 )); then
-    # Recent flag — Claude just generated the insight, approve the stop
     rm -f "$SUGGESTING_FLAG"
     echo '{"decision": "approve"}'
     exit 0

@@ -1,14 +1,14 @@
 ---
-description: "Pause cognitive agent inline suggestions for this session"
+description: "Deactivate cognitive agent inline suggestions"
 allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/toggle.sh:*)"]
 ---
 
 # Cognitive Agent Stop
 
-Pause suggestions for the current session:
+Deactivate cognitive suggestions:
 
 ```!
 "${CLAUDE_PLUGIN_ROOT}/scripts/toggle.sh" stop
 ```
 
-Suggestions resume automatically in the next Claude Code session. To re-enable now: `/cognitive-agent:start`
+To reactivate: `/cognitive-agent:start`
