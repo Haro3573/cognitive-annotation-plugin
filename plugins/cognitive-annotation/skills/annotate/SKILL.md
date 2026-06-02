@@ -8,28 +8,23 @@ You are orchestrating a 4-agent cognitive annotation pipeline.
 
 **Steps**:
 
-1. Determine the transcript source:
-   - If `$ARGUMENTS` is a bare filename (with or without leading `@`) ending in `.jsonl` → strip the `@` if present. Use the Bash tool to look up the filename in the index:
-     ```bash
-     python3 - "$CLAUDE_PROJECT_DIR/session_collection/raw/sessions.json" "<filename>" <<'EOF'
-     import json, sys, os
-     data = json.load(open(sys.argv[1]))
-     target = sys.argv[2]
-     root = os.path.join(os.path.expanduser("~"), ".claude", "projects")
-     for project, files in data.get("projects", {}).items():
-         if target in files:
-             print(os.path.join(root, project, target))
-             break
-     EOF
+1. Get the transcript:
+   - If `$ARGUMENTS` is a full file path → read it directly.
+   - If `$ARGUMENTS` is text → use it directly as the transcript.
+   - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context and use it. If nothing is in context, read `$CLAUDE_PROJECT_DIR/session_collection/raw/sessions.json` and present the session list to the user:
      ```
-     If found, take the printed path. If not found, fall back in order:
-     1. `find "${COGNITIVE_SESSIONS_DIR:-}" -maxdepth 2 -name "<filename>" 2>/dev/null | head -1` — only if `$COGNITIVE_SESSIONS_DIR` is set
-     2. `find "$CLAUDE_PROJECT_DIR" -maxdepth 4 -name "<filename>" 2>/dev/null | head -1`
-     Take the result as the absolute path and pass it to `Read`. Do **not** guess paths or use prior context.
-   - If `$ARGUMENTS` is a full file path → read the file directly.
-   - If `$ARGUMENTS` is plain text → use it directly as the transcript.
-   - If `$ARGUMENTS` is empty → check if a transcript is visible in the current conversation context.
-   - If nothing is available → **stop and ask**: "Please provide a transcript. You can either paste it here or give me a file path, e.g. `/cognitive-annotation:annotate sample_conversation.json`."
+     Available sessions:
+
+     <project-name>
+       [1] uuid-a.jsonl
+       [2] uuid-b.jsonl
+
+     <project-name-2>
+       [3] uuid-c.jsonl
+
+     Which session would you like to annotate? (enter a number or paste a path)
+     ```
+     Once the user picks a number, resolve the path as `~/.claude/projects/<project>/<filename>` and read the file. If `sessions.json` does not exist, ask: "Please provide a transcript or file path."
 
 2. Invoke all 4 extraction agents one by one using the Agent tool, passing the full transcript in each prompt:
    - Use the **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
