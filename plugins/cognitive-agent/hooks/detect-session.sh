@@ -22,13 +22,33 @@ fi
 
 ABS=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$ABS" 2>/dev/null) || exit 0
 
-# If not found at resolved path, search in order:
-#   1. $COGNITIVE_SESSIONS_DIR (user-declared sessions folder, set in env or .env)
-#   2. $CLAUDE_PROJECT_DIR subtree (maxdepth 4)
+# If not found at resolved path, resolve in order:
+#   1. session_collection/raw/sessions.json index (fast, no find)
+#   2. $COGNITIVE_SESSIONS_DIR (user-declared sessions folder)
+#   3. $CLAUDE_PROJECT_DIR subtree (maxdepth 4, last resort)
 if [[ ! -f "$ABS" ]]; then
   FILENAME=$(basename "$RAW")
   ABS=""
-  if [[ -n "${COGNITIVE_SESSIONS_DIR:-}" && -d "$COGNITIVE_SESSIONS_DIR" ]]; then
+
+  INDEX_FILE="${CLAUDE_PROJECT_DIR}/session_collection/raw/sessions.json"
+  if [[ -f "$INDEX_FILE" ]]; then
+    ABS=$(python3 - "$INDEX_FILE" "$FILENAME" <<'PYEOF'
+import json, sys, os
+try:
+    data = json.load(open(sys.argv[1]))
+    target = sys.argv[2]
+    projects_root = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    for project, files in data.get("projects", {}).items():
+        if target in files:
+            print(os.path.join(projects_root, project, target))
+            break
+except Exception:
+    pass
+PYEOF
+    )
+  fi
+
+  if [[ -z "$ABS" ]] && [[ -n "${COGNITIVE_SESSIONS_DIR:-}" && -d "$COGNITIVE_SESSIONS_DIR" ]]; then
     ABS=$(find "$COGNITIVE_SESSIONS_DIR" -maxdepth 2 -name "$FILENAME" 2>/dev/null | head -1)
   fi
   if [[ -z "$ABS" ]]; then
