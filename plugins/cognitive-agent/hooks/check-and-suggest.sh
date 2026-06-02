@@ -2,17 +2,24 @@
 set -euo pipefail
 
 HOOK_INPUT=$(cat)
-FLAG="$CLAUDE_PROJECT_DIR/.claude/cognitive-agent-active"
+COGNITIVE_DIR="$CLAUDE_PROJECT_DIR/.cognitive"
+SESSION_JSON="$COGNITIVE_DIR/session.json"
+SESSION_INDEX="$COGNITIVE_DIR/session.index.md"
+DISABLED_FLAG="$COGNITIVE_DIR/.disabled"
 
-# Fast exit when not activated
-if [[ ! -f "$FLAG" ]]; then
-  echo '{"decision": "approve"}'
-  exit 0
+# Check session-scoped disabled flag
+if [[ -f "$DISABLED_FLAG" ]]; then
+  CURRENT_SESSION=$(echo "$HOOK_INPUT" | jq -r '.session_id // ""')
+  DISABLED_SESSION=$(cat "$DISABLED_FLAG")
+  if [[ "$CURRENT_SESSION" == "$DISABLED_SESSION" ]]; then
+    echo '{"decision": "approve"}'
+    exit 0
+  fi
+  # Stale flag from a previous session — clean it up
+  rm -f "$DISABLED_FLAG"
 fi
 
-SESSION_JSON=$(jq -r '.session_json // ""' "$FLAG")
-SESSION_INDEX=$(jq -r '.session_index // ""' "$FLAG")
-
+# Silent no-op when profile files are absent
 if [[ ! -f "$SESSION_JSON" || ! -f "$SESSION_INDEX" ]]; then
   echo '{"decision": "approve"}'
   exit 0
@@ -36,7 +43,6 @@ fi
 
 INDEX=$(cat "$SESSION_INDEX")
 
-# Build compact system message in bash; use jq only for final JSON encoding
 MSG="💡 Cognitive Agent active.
 
 ## Recent turns (Sliding Triad)

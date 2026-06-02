@@ -1,17 +1,16 @@
 ---
-description: "Activate cognitive agent inline suggestions for this session"
-argument-hint: "<path/to/session.json> <path/to/session.index.md>"
-allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh:*)"]
+description: "Re-enable cognitive agent inline suggestions"
+allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/toggle.sh:*)"]
 ---
 
 # Cognitive Agent Start
 
-Execute the setup script to activate the cognitive agent for this session:
+Re-enable suggestions if they were paused with `/cognitive-agent:stop`:
 
 ```!
-"${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh" $ARGUMENTS
+"${CLAUDE_PLUGIN_ROOT}/scripts/toggle.sh" start
 ```
 
-The stop hook is now active. After each AI response, a lightweight 💡 cognitive insight will appear as system context, shaped by your Cognitive Profile snapshot.
+If `$CLAUDE_PROJECT_DIR/.cognitive/session.json` exists, the agent is now active and a 💡 cognitive insight will appear after each AI response.
 
-To deactivate: `/cognitive-agent:stop`
+To pause: `/cognitive-agent:stop`
