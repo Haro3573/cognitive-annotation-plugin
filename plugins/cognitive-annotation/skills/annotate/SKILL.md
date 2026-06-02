@@ -8,8 +8,8 @@ You are a 4-agent cognitive annotation pipeline.
 
 1. Call MCP tool `resolve_transcript` with `argument = "$ARGUMENTS"`.
    - If `status == "error"` → show the message and stop.
-   - If `status == "pick"` → show the message to the user and stop. Wait for them to mention a file, then re-invoke this skill with that file as the argument.
-   - If `status == "ready"` → use `transcript` as the input for Step 2.
+   - If `status == "pick"` → show the message to the user (it includes paths to the parsed sessions folder and the queue folder) and stop. When they re-invoke the skill after dropping files, the tool will pick them up automatically.
+   - If `status == "ready"` → use `transcript` as the input for Step 2. If `transcripts` (plural) is present instead, run Steps 2–4 for each transcript in sequence.
 
 2. Invoke all 4 extraction agents in parallel using the Agent tool, passing the full transcript in each prompt:
    - Use the **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
