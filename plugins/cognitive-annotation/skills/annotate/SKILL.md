@@ -1,24 +1,26 @@
 ---
-description: Annotate a conversation transcript using 4 specialized cognitive extraction agents — executive function, metacognition, memory & reasoning, and user mental model. Use when asked to annotate a conversation, extract cognitive behaviors, or analyze a user's cognitive patterns in a transcript. For batch annotation of all parsed sessions, use /cognitive-annotation:annotate with no argument after calling queue_all_sessions.
+description: Annotate a conversation transcript using 4 specialized cognitive extraction agents — executive function, metacognition, memory & reasoning, and user mental model. Use when asked to annotate a conversation, extract cognitive behaviors, or analyze a user's cognitive patterns in a transcript. For batch annotation of all parsed sessions, call queue_all_sessions first then invoke with no argument.
 ---
 
-You are a 4-agent cognitive annotation pipeline.
+You are a 4-agent cognitive annotation pipeline that runs end-to-end: extract → classify → write DB → export snapshot.
 
 **Steps**:
 
 1. Call MCP tool `resolve_transcript` with `argument = "$ARGUMENTS"`.
    - If `status == "error"` → show the message and stop.
-   - If `status == "pick"` → show the message to the user (it includes paths to the parsed sessions folder and the queue folder) and stop. When they re-invoke the skill after dropping files, the tool will pick them up automatically.
-   - If `status == "ready"` → `transcript` is a single session. Run Steps 2–4 once.
-   - If `transcripts` (plural) is present → this is a batch run. Run Steps 2–3 for each transcript in sequence. After all sessions are processed, go to Step 5 (batch summary) instead of Step 4.
+   - If `status == "pick"` → show the message (it includes paths to the parsed sessions folder and the queue folder) and stop.
+   - If `status == "ready"` → `transcript` is a single session JSON string. Run Steps 2–7 once.
+   - If `transcripts` (plural) is present → batch run. For each transcript in sequence, run Steps 2–7, printing a one-line progress summary per session. After all sessions, print a batch total and stop.
 
-2. Invoke all 4 extraction agents **in parallel** using the Agent tool, passing the full transcript in each prompt:
-   - Use the **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
-   - Use the **metacognition** agent: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
-   - Use the **memory-reasoning** agent: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
-   - Use the **user-mental-model** agent: "Annotate the following transcript for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only.\n\n[transcript]"
+2. Parse the transcript string as JSON to get `context_history` (list of message dicts). Extract `conversation_name` from `context_history[0]["conversation_name"]`.
 
-3. Combine all 4 results into a single JSON structure:
+3. Invoke all 4 extraction agents **in parallel** using the Agent tool, passing the full transcript string in each prompt:
+   - **executive-function** agent: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
+   - **metacognition** agent: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
+   - **memory-reasoning** agent: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
+   - **user-mental-model** agent: "Annotate the following transcript for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only.\n\n[transcript]"
+
+4. Combine all 4 results into `annotation_results_new`:
 ```json
 {
   "executive_function": { ... },
@@ -28,12 +30,39 @@ You are a 4-agent cognitive annotation pipeline.
 }
 ```
 
-4. **(Single session only)** Present the combined JSON, followed by a brief plain-language summary of the most notable findings across all 4 agents.
+5. **Self-classify excerpts** (only if `context_history` contains messages with `role == "subagent"`):
 
-5. **(Batch only)** After all sessions are processed, print a one-line status per session:
+   For each excerpt in `annotation_results_new`, compute its `excerpt_id`:
    ```
-   ✓ <session_id[:8]> — <N> excerpts found across 4 categories
-   ✗ <session_id[:8]> — no excerpts found
+   conv_slug = conversation_name.lower(), replace all non-alphanumeric chars with "_"
+   excerpt_id = "{category}__{subcategory}__{conv_slug}__turn_{turn_index}"
    ```
-   Then print a total: `Batch complete: N sessions annotated, M sessions with no excerpts.`
-   Do not dump full JSON for each session — keep the output readable.
+   where `category` maps as: `executive_function→executive-function`, `metacognition→metacognition`, `memory_and_reasoning→memory-reasoning`, `user_mental_model→user-mental-model`.
+
+   Find the nearest preceding subagent message in `context_history` before the excerpt's `turn_index`. Read the matching evaluator prompt:
+   - `executive_function` excerpts → `pipeline/outcome_processor/evaluators/executive-function.md`
+   - `metacognition` excerpts → `pipeline/outcome_processor/evaluators/metacognition.md`
+   - `memory_and_reasoning` excerpts → `pipeline/outcome_processor/evaluators/memory-reasoning.md`
+   - `user_mental_model` excerpts → `pipeline/outcome_processor/evaluators/user-mental-model.md`
+
+   Apply the evaluator: given the subagent comment + the user's subsequent text + the excerpt, classify as `accepted`, `partially_matched`, or `rejected`. Build:
+   ```json
+   { "excerpt_id": "accepted|partially_matched|rejected", ... }
+   ```
+
+   If no subagent turns exist in `context_history`, set `relation_scores = {}`.
+
+6. Call `build_subagent_map` with `conversation_name`. Use the returned map as `subagent_map`.
+
+7. Call `report_decision_outcome` with:
+   - `conversation_name`
+   - `annotation_results_new` (from Step 4)
+   - `subagent_map` (from Step 6)
+   - `context_history` (from Step 2)
+   - `relation_scores` (from Step 5)
+
+8. Call `export_session_snapshot` with `conversation_name`.
+
+9. **Output**:
+   - **Single session**: print the combined annotation JSON, the DB write summary from `report_decision_outcome`, and a confirmation that the snapshot was exported.
+   - **Batch**: print one line per session: `✓ {conversation_name[:8]} — {N} excerpts, {processed} aligned, snapshot exported` or `✗ {conversation_name[:8]} — {error}`. After all sessions: `Batch complete: N sessions processed.`
