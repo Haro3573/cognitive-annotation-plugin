@@ -44,7 +44,13 @@ Combine results into `annotation_results_new`:
 Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, and `context_history` (the parsed transcript JSON array).
 
 - If `task_count == 0` → set `relation_scores = {}` and go to Step 5.
-- If tasks are returned → for each task, read the `evaluator_prompt` and apply it: given `subagent_comment` + `user_text` + `excerpt_text`, classify as `accepted`, `partially_matched`, or `rejected`. Build `relation_scores = {excerpt_id: score}`.
+- If tasks are returned → dispatch the **classifier** agent with the full task list:
+
+  ```
+  "Classify the following behavioral excerpts. Return relation_scores JSON.\n\n[task list as JSON array]"
+  ```
+
+  The agent applies each task's `evaluator_prompt` to its `(subagent_comment, user_text, excerpt_text)` triplet and returns `{"relation_scores": {excerpt_id: score}}`. Extract `relation_scores` from the agent's output.
 
 ---
 
