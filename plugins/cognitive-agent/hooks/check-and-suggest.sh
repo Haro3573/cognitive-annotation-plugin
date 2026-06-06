@@ -1,11 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-DEBUG_LOG="/tmp/cognitive-hook-debug.log"
-exec 2>>"$DEBUG_LOG"
-echo "--- hook fired $(date) ---" >> "$DEBUG_LOG"
-set -x
-
 HOOK_INPUT=$(cat)
 
 _find_project_root() {
@@ -30,6 +25,15 @@ if [[ ! -f "$ACTIVE_FLAG" ]]; then
   echo '{"decision": "approve"}'
   exit 0
 fi
+
+# Prevent recursive hook calls from claude -p subprocess sessions
+LOCK_FILE="$COGNITIVE_DIR/.suggesting"
+if [[ -f "$LOCK_FILE" ]]; then
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+touch "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT
 
 SESSION_INDEX="$COGNITIVE_DIR/session.index.md"
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path // ""')
