@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+DEBUG_LOG="/tmp/cognitive-hook-debug.log"
+exec 2>>"$DEBUG_LOG"
+echo "--- hook fired $(date) ---" >> "$DEBUG_LOG"
+set -x
+
 HOOK_INPUT=$(cat)
 
 _find_project_root() {
