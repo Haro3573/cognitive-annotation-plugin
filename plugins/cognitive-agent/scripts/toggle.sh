@@ -2,7 +2,22 @@
 set -euo pipefail
 
 ACTION="${1:-}"
-COGNITIVE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.cognitive"
+
+# Resolve project root: prefer $CLAUDE_PROJECT_DIR (hook context);
+# fall back to searching $PWD and one level of subdirs for the project marker.
+_find_project_root() {
+  if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+    echo "$CLAUDE_PROJECT_DIR"; return
+  fi
+  if [[ -f "$PWD/pipeline/mcp_server.py" ]]; then
+    echo "$PWD"; return
+  fi
+  for d in "$PWD"/*/; do
+    [[ -f "${d}pipeline/mcp_server.py" ]] && { echo "${d%/}"; return; }
+  done
+  echo "$PWD"
+}
+COGNITIVE_DIR="$(_find_project_root)/.cognitive"
 ACTIVE_FLAG="$COGNITIVE_DIR/.active"
 
 case "$ACTION" in
