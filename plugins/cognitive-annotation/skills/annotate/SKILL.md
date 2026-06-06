@@ -13,8 +13,8 @@ You are a 4-agent cognitive annotation pipeline. Run all steps for every session
 Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` → show the message (includes paths to browse and queue folder) and stop.
-- `status == "ready"` → use `transcript` (single session JSON string).
-- `transcripts` present → batch mode; process each string through the remaining steps.
+- `status == "ready"` → use `transcript` (single session JSON string). Store `sidecar_path` from the response (may be null).
+- `transcripts` present → batch mode; process each string through the remaining steps. Store `sidecar_paths` array (parallel to `transcripts`).
 
 ---
 
@@ -41,7 +41,7 @@ Combine results into `annotation_results_new`:
 
 **Step 3 — Prepare classification**
 
-Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, and `context_history` (the parsed transcript JSON array).
+Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, and `context_history` (the parsed transcript JSON array). If `sidecar_path` from Step 1 is non-null, pass it as `sidecar_path`.
 
 - If `task_count == 0` → set `relation_scores = {}` and go to Step 5.
 - If tasks are returned → dispatch the **classifier** agent with the full task list:
