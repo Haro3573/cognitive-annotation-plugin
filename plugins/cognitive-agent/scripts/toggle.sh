@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ACTION="${1:-}"
-COGNITIVE_DIR="${CLAUDE_PROJECT_DIR}/.cognitive"
+COGNITIVE_DIR="${CLAUDE_PROJECT_DIR:-$PWD}/.cognitive"
 ACTIVE_FLAG="$COGNITIVE_DIR/.active"
 
 case "$ACTION" in
