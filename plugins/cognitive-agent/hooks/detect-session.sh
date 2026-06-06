@@ -5,7 +5,7 @@ HOOK_INPUT=$(cat)
 USER_PROMPT=$(echo "$HOOK_INPUT" | jq -r '.user_prompt // ""')
 
 # Extract first .jsonl mention from prompt, strip leading @
-RAW=$(echo "$USER_PROMPT" | grep -oE '(@[^ ]+\.jsonl|[^ ]+\.jsonl)' | head -1 | sed 's/^@//')
+RAW=$(echo "$USER_PROMPT" | grep -oE '(@[^ ]+\.jsonl|[^ ]+\.jsonl)' | head -1 | sed 's/^@//') || true
 
 if [[ -z "$RAW" ]]; then
   exit 0
