@@ -131,15 +131,18 @@ with open('$TRANSCRIPT_PATH') as f:
 print(n)
 " 2>/dev/null || echo "0")
 
+LAST_ASSISTANT=$(echo "$HOOK_INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null || true)
+
 python3 -c "
 import json, sys
 print(json.dumps({
     'session_id': '$UUID',
     'turn_index': int('$TURN_INDEX'),
     'advice_text': sys.argv[1],
+    'last_assistant_content': sys.argv[2],
     'timestamp': '$(date -u +%Y-%m-%dT%H:%M:%SZ)'
 }))
-" "$INSIGHT" >> "$SIDECAR" 2>/dev/null || true
+" "$INSIGHT" "$LAST_ASSISTANT" >> "$SIDECAR" 2>/dev/null || true
 
 # Display via systemMessage — display-only, Claude does not see this
 jq -n --arg msg "$INSIGHT" '{"decision": "approve", "systemMessage": $msg}'
