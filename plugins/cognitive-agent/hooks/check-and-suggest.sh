@@ -82,8 +82,16 @@ if [[ -z "$PROFILE" ]]; then
   exit 0
 fi
 
+# Locate claude binary — ~/.local/bin is common install path, may not be in hook PATH
+CLAUDE_BIN=$(command -v claude 2>/dev/null || echo "$HOME/.local/bin/claude")
+
+if [[ ! -x "$CLAUDE_BIN" ]]; then
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+
 # Generate insight via a fresh claude -p instance (isolated — main session untouched)
-INSIGHT=$(claude --print "You are a cognitive insight generator. Based on the user's behavioral profile and recent conversation, write ONE concise insight (1-2 sentences). Start with 💡. No preamble.
+INSIGHT=$("$CLAUDE_BIN" -p "You are a cognitive insight generator. Based on the user's behavioral profile and recent conversation, write ONE concise insight (1-2 sentences). Start with 💡. No preamble.
 
 BEHAVIORAL PROFILE:
 ${PROFILE}
