@@ -36,9 +36,15 @@ touch "$LOCK_FILE"
 trap 'rm -f "$LOCK_FILE"' EXIT
 
 SESSION_INDEX="$COGNITIVE_DIR/session.index.md"
+OVERVIEW="$PROJECT_ROOT/wiki/pages/overview.md"
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path // ""')
 
-if [[ ! -f "$SESSION_INDEX" || -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]]; then
+if [[ ! -f "$SESSION_INDEX" && ! -f "$OVERVIEW" ]]; then
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+
+if [[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]]; then
   echo '{"decision": "approve"}'
   exit 0
 fi
@@ -83,8 +89,12 @@ print('\n\n'.join(turns[-3:]))
 PYEOF
 )
 
-# Profile: first 20 lines of session.index.md
-PROFILE=$(head -20 "$SESSION_INDEX" 2>/dev/null || true)
+# Profile: wiki overview (synthesized, primary) or session.index.md (raw fallback)
+if [[ -f "$OVERVIEW" ]]; then
+  PROFILE=$(cat "$OVERVIEW")
+else
+  PROFILE=$(head -20 "$SESSION_INDEX" 2>/dev/null || true)
+fi
 
 if [[ -z "$PROFILE" ]]; then
   echo '{"decision": "approve"}'
@@ -99,8 +109,16 @@ if [[ ! -x "$CLAUDE_BIN" ]]; then
   exit 0
 fi
 
+# Load agent prompt from the plugin — falls back to a minimal inline prompt if missing
+AGENT_PROMPT_FILE="${CLAUDE_PLUGIN_ROOT}/hooks/agent-prompt.md"
+if [[ -f "$AGENT_PROMPT_FILE" ]]; then
+  AGENT_PROMPT=$(cat "$AGENT_PROMPT_FILE")
+else
+  AGENT_PROMPT="You are a cognitive insight generator. Write ONE insight (1-2 sentences) grounded in the profile. Start with 💡. No preamble."
+fi
+
 # Generate insight via a fresh claude -p instance (isolated — main session untouched)
-INSIGHT=$("$CLAUDE_BIN" -p "You are a cognitive insight generator. Based on the user's behavioral profile and recent conversation, write ONE concise insight (1-2 sentences). Start with 💡. No preamble.
+INSIGHT=$("$CLAUDE_BIN" -p "${AGENT_PROMPT}
 
 BEHAVIORAL PROFILE:
 ${PROFILE}
