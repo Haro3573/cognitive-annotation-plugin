@@ -1,43 +1,4 @@
 {
-  "description": "Cognitive agent hooks — auto-detects .jsonl session files, shows active status, injects profile context after each AI response",
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/refresh-session-index.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-and-suggest.sh\"",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/show-status.sh\"",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/detect-session.sh\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "description": "Cognitive agent hooks — no active hooks (Agent Block removed; post-session prediction pipeline now handles behavioral analysis)",
+  "hooks": {}
 }

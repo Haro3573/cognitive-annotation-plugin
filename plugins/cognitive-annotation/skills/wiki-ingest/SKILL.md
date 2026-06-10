@@ -76,7 +76,7 @@ After all sessions are ingested, read all pages in `wiki/pages/categories/` and 
 - **Contradictions**: any subcategories where the same behavior was both accepted and rejected across sessions
 - **Profile summary**: 3–5 sentences a cognitive insight agent could use to generate relevant 💡 insights
 
-This last section — the profile summary — should be at the top of the file under a `## Profile` heading. It is what `check-and-suggest.sh` reads.
+This last section — the profile summary — should be at the top of the file under a `## Profile` heading. It is what the prediction agent reads when generating predicted user messages.
 
 ---
 
