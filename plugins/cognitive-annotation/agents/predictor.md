@@ -34,3 +34,5 @@ For each turn index in the annotated list:
 
 Return ONLY valid JSON. No prose, no markdown, no explanation:
 {"predictions": {"<turn_index>": "<predicted message>", ...}}
+
+Keys MUST be bare decimal integer strings — e.g. "2", "15", "42". No prefixes ("turn_2"), no padding ("02"), no floats ("2.0").
