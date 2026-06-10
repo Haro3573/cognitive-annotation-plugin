@@ -60,7 +60,16 @@ Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `c
 
 ---
 
-**Step 5 — Output**
+**Step 5 — Update wiki**
 
-- **Single session**: show the combined annotation JSON, then the `persist_annotation` summary.
-- **Batch**: print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped` per session. Print totals at the end.
+Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s).
+
+- **Single session**: call immediately after Step 4.
+- **Batch**: call once after all sessions complete (not per-session — defers overview rebuild to the end).
+
+---
+
+**Step 6 — Output**
+
+- **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
+- **Batch**: print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped` per session. Print totals and wiki ingest summary at the end.

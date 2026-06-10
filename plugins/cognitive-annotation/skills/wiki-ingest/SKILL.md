@@ -1,0 +1,104 @@
+---
+description: Sync the wiki with cognitive.db. Discovers all annotated sessions that lack wiki pages and ingests them automatically — no UUIDs needed. Updates session pages, category pages, pattern pages, overview.md, index.md, and log.md. Run after annotation or any time the wiki is stale.
+---
+
+You are running an automated wiki ingest. All steps are required.
+
+---
+
+**Step 1 — Locate the database and wiki**
+
+```bash
+DB="${COGNITIVE_DB_PATH:-cognitive.db}"
+WIKI="${CLAUDE_PROJECT_DIR}/wiki"
+PARSED="${CLAUDE_PROJECT_DIR}/session_collection/parsed"
+```
+
+If `$DB` does not exist as a file, stop and report: "cognitive.db not found — set COGNITIVE_DB_PATH or run from the project root."
+
+---
+
+**Step 2 — Discover sessions to ingest**
+
+Query all annotated sessions in chronological order:
+
+```bash
+sqlite3 "$DB" "SELECT DISTINCT conversation_name FROM cognitive_alignments ORDER BY MIN(created_at);"
+```
+
+For each UUID, check whether `$WIKI/pages/sessions/<uuid[:8]>.md` exists.
+
+Collect sessions **without** a page — this is the **ingest queue**.
+
+If the queue is empty: print "Wiki is up to date — nothing to ingest." and stop.
+
+Print: `Found <N> session(s) to ingest: <uuid[:8]>, ...`
+
+---
+
+**Step 3 — Ingest each session in the queue**
+
+For each session UUID, follow the **Ingest a session** procedure from `wiki/CLAUDE.md` exactly (9 steps: read parsed transcript → query alignments → query relationships → write session page → update category pages → update pattern pages → update overview → update index → append log entry).
+
+Key queries for each session:
+
+```bash
+# Behavioral events
+sqlite3 "$DB" "
+SELECT turn_index, category, subcategory, excerpt_text, subagent_comment, relation_score
+FROM cognitive_alignments
+WHERE conversation_name = '<uuid>'
+ORDER BY turn_index;"
+
+# Relationship edges involving this session
+sqlite3 "$DB" "
+SELECT cr.relation_type, cr.source_excerpt_id, cr.target_excerpt_id
+FROM cognitive_relationships cr
+JOIN cognitive_alignments ca ON ca.excerpt_id = cr.source_excerpt_id
+WHERE ca.conversation_name = '<uuid>';"
+```
+
+Parsed transcript: check `$PARSED/<uuid>.json`. If present, read it for the "What was discussed" section. If absent, write: *No parsed transcript available — behavioral data from DB only.*
+
+Print one progress line per session as it completes:
+`✓ <uuid[:8]> — <N> excerpt(s), <M> edge(s)`
+
+**Do not update `overview.md` during individual session ingests** — defer it to Step 4.
+
+---
+
+**Step 4 — Rebuild overview.md**
+
+After all sessions are ingested, read all pages in `wiki/pages/categories/` and `wiki/pages/patterns/`. Synthesize `wiki/pages/overview.md`:
+
+- **Dominant patterns**: which subcategories appear most, with what score distribution
+- **Cross-session trajectory**: how behaviors have shifted across sessions (if multiple sessions)
+- **Contradictions**: any subcategories where the same behavior was both accepted and rejected across sessions
+- **Profile summary**: 3–5 sentences a cognitive insight agent could use to generate relevant 💡 insights
+
+This last section — the profile summary — should be at the top of the file under a `## Profile` heading. It is what `check-and-suggest.sh` reads.
+
+---
+
+**Step 5 — Finalize index.md and log.md**
+
+Update `wiki/index.md`:
+- Add a row to the **Sessions** table for each newly ingested session
+- Update the **Overview** section link if overview.md was rebuilt
+
+Append to `wiki/log.md`:
+```
+## [YYYY-MM-DD] ingest | <N> session(s): <uuid[:8]>, ...
+```
+
+---
+
+**Step 6 — Summary**
+
+Print:
+```
+Wiki ingest complete.
+  Sessions ingested: <N>
+  Pages written:     <M>
+  Overview rebuilt:  yes/no
+```
