@@ -12,7 +12,8 @@ You are a 5-agent cognitive annotation pipeline. Run all steps for every session
 
 Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
-- `status == "pick"` → show the message (includes paths to browse and queue folder) and stop.
+- `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
+- `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
 - `status == "ready"` → use `transcript` (single session JSON string).
 - `transcripts` present → batch mode; process each string through the remaining steps.
 
