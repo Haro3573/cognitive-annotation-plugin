@@ -4,7 +4,7 @@ description: Annotate a conversation transcript using 4 cognitive extraction age
 
 You are a 5-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`transcripts` array returned): repeat Steps 1–6 for each transcript in sequence, printing one progress line per session. Print a total when all sessions are done.
+**For batch runs** (`sessions` array returned): repeat Steps 2–5 for each session object in sequence, printing one progress line per session. Print a total when all sessions are done.
 
 ---
 
@@ -14,14 +14,14 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` → use `transcript` (single session JSON string).
-- `transcripts` present → batch mode; process each string through the remaining steps.
+- `status == "ready"` and `transcript` present → single-session mode; extract `conversation_name` from the result. Use `transcript` as the session JSON string.
+- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, read `parsed_path` with the Read tool to get the transcript JSON string, then process through Steps 2–5.
 
 ---
 
 **Step 2 — Extract cognitive behaviors (4 agents in parallel)**
 
-Parse the transcript string as JSON. Pass it to all 4 agents simultaneously:
+Parse the transcript string as JSON (for batch mode, this comes from the Read tool result on `parsed_path`). Pass it to all 4 agents simultaneously:
 
 - **executive-function**: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
 - **metacognition**: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
@@ -55,7 +55,7 @@ COGNITIVE PROFILE:
 [overview.md contents, or 'No profile yet.']
 
 TRANSCRIPT:
-[context_history as JSON]
+[transcript as JSON]
 
 ANNOTATED TURN INDICES:
 [sorted list of turn indices]"
@@ -67,7 +67,7 @@ Extract `predictions` from the agent's output: `{"turn_index": "predicted_text",
 
 **Step 4 — Prepare classification**
 
-Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, `context_history`, and `predictions`.
+Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, and `predictions`. (Do NOT pass `context_history` — session_history was already written to the DB by `resolve_transcript`.)
 
 - If `task_count == 0` → set `relation_scores = {}` and go to Step 5.
 - If tasks are returned → dispatch the **classifier** agent with the full task list:
@@ -82,7 +82,7 @@ Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, `co
 
 **Step 5 — Persist**
 
-Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `context_history`, `relation_scores`, and `predictions`.
+Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `relation_scores`, and `predictions`. (Do NOT pass `context_history` — session_history is already in the DB.)
 
 ---
 
