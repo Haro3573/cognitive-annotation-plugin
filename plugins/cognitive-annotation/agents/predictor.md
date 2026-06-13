@@ -1,7 +1,7 @@
 ---
 name: predictor
 description: Generates predicted user messages for annotated turns based on the cognitive profile. Run after the 4 annotation agents — receives annotation_results_new (for turn indices) + transcript + profile. Returns predictions {str(turn_index): predicted_text}.
-tools: []
+tools: [Read]
 model: sonnet
 ---
 

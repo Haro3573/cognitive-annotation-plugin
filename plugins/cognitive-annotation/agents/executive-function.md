@@ -1,7 +1,7 @@
 ---
 name: executive-function
 description: Cognitive extraction specialist for executive function behaviors — planning, inhibition, and shifting. Use when annotating a conversation transcript for executive function evidence.
-tools: []
+tools: [Read]
 model: sonnet
 ---
 

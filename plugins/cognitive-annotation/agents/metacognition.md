@@ -1,7 +1,7 @@
 ---
 name: metacognition
 description: Cognitive extraction specialist for metacognitive behaviors — knowledge of limits, confidence calibration, error monitoring, and monitoring-control coupling. Use when annotating a conversation transcript for metacognition evidence.
-tools: []
+tools: [Read]
 model: sonnet
 ---
 

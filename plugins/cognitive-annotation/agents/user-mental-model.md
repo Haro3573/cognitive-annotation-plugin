@@ -1,7 +1,7 @@
 ---
 name: user-mental-model
 description: Cognitive extraction specialist for user mental model behaviors — system model updates and cooperation/persuasion patterns. Use when annotating a conversation transcript for user mental model evidence.
-tools: []
+tools: [Read]
 model: sonnet
 ---
 

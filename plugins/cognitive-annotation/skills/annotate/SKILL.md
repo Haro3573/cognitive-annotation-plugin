@@ -14,19 +14,19 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` and `transcript` present → single-session mode; extract `conversation_name` from the result. Use `transcript` as the session JSON string.
-- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, read `parsed_path` with the Read tool to get the transcript JSON string, then process through Steps 2–5.
+- `status == "ready"` and `transcript` present → single-session mode; extract `conversation_name` and `parsed_path` from the result. Use `parsed_path` as the transcript source — pass it to agents; do NOT use or read the `transcript` field directly.
+- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. Pass `parsed_path` to agents for each session; do NOT read the file into the parent context.
 
 ---
 
 **Step 2 — Extract cognitive behaviors (4 agents in parallel)**
 
-Parse the transcript string as JSON (for batch mode, this comes from the Read tool result on `parsed_path`). Pass it to all 4 agents simultaneously:
+Pass `parsed_path` to all 4 agents simultaneously. Agents read the transcript themselves — do NOT read the file into the parent context first.
 
-- **executive-function**: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
-- **metacognition**: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
-- **memory-reasoning**: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
-- **user-mental-model**: "Annotate the following transcript for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only.\n\n[transcript]"
+- **executive-function**: "Read the transcript at `[parsed_path]` and annotate it for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only."
+- **metacognition**: "Read the transcript at `[parsed_path]` and annotate it for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only."
+- **memory-reasoning**: "Read the transcript at `[parsed_path]` and annotate it for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only."
+- **user-mental-model**: "Read the transcript at `[parsed_path]` and annotate it for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only."
 
 Combine results into `annotation_results_new` using these exact rules:
 
@@ -87,8 +87,9 @@ Dispatch the **predictor** agent:
 COGNITIVE PROFILE:
 [overview.md contents, or 'No profile yet.']
 
-TRANSCRIPT:
-[transcript as JSON]
+TRANSCRIPT PATH:
+[parsed_path]
+(Read this file to get the transcript.)
 
 ANNOTATED TURN INDICES:
 [sorted list of turn indices]"

@@ -1,7 +1,7 @@
 ---
 name: memory-reasoning
 description: Cognitive extraction specialist for memory and reasoning behaviors — domain knowledge injection and deductive, inductive, abductive, and analogical reasoning patterns. Use when annotating a conversation transcript for memory and reasoning evidence.
-tools: []
+tools: [Read]
 model: sonnet
 ---
 
