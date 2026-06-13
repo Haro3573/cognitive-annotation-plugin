@@ -28,13 +28,46 @@ Parse the transcript string as JSON (for batch mode, this comes from the Read to
 - **memory-reasoning**: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
 - **user-mental-model**: "Annotate the following transcript for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only.\n\n[transcript]"
 
-Combine results into `annotation_results_new`:
+Combine results into `annotation_results_new` using these exact rules:
+
+1. **Strip the `_behavior` suffix** from each agent's top-level key:
+   - `executive_function_behavior` → `executive_function`
+   - `metacognition_behavior` → `metacognition`
+   - `memory_and_reasoning_behavior` → `memory_and_reasoning`
+   - `user_mental_model_behavior` → `user_mental_model`
+
+2. **Preserve the inner subcategory-keyed structure exactly** as the agent returned it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will cause `classify_excerpts` to return `task_count: 0` because `normalize_annotation_results` iterates subcategory keys, not a generic `"excerpts"` key.
+
 ```json
 {
-  "executive_function": { ... },
-  "metacognition": { ... },
-  "memory_and_reasoning": { ... },
-  "user_mental_model": { ... }
+  "executive_function": {
+    "planning_behavior": [...],
+    "inhibition_behavior": [...],
+    "shifting_behavior": [...],
+    "null_findings": {...}
+  },
+  "metacognition": {
+    "knowledge_of_limits": [...],
+    "confidence_calibration": [...],
+    "error_monitoring": [...],
+    "monitoring_control_coupling": [...],
+    "null_findings": {...}
+  },
+  "memory_and_reasoning": {
+    "domain_knowledge_injection": [...],
+    "reasoning_patterns": {
+      "deductive": [...],
+      "inductive": [...],
+      "abductive": [...],
+      "analogical": [...]
+    },
+    "null_findings": {...}
+  },
+  "user_mental_model": {
+    "system_model_updates": [...],
+    "cooperation_and_persuasion": [...],
+    "null_findings": {...}
+  }
 }
 ```
 
