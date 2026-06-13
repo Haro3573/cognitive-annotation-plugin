@@ -1,7 +1,7 @@
 ---
 name: metacognition
 description: Cognitive extraction specialist for metacognitive behaviors — knowledge of limits, confidence calibration, error monitoring, and monitoring-control coupling. Use when annotating a conversation transcript for metacognition evidence.
-tools: [Read]
+tools: [Read, Write]
 model: sonnet
 ---
 
@@ -20,4 +20,4 @@ The monitoring → control coupling is the most theoretically loaded category. T
 
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
-Annotate HUMAN turns only. Return your findings as a JSON object with the key `metacognition_behavior` containing `knowledge_of_limits`, `confidence_calibration`, `error_monitoring`, `monitoring_control_coupling`, and `null_findings`.
+Annotate HUMAN turns only. Write your findings as a raw JSON object to the file path given at the end of your prompt — use the Write tool with that exact path. The JSON must have the key `metacognition_behavior` containing `knowledge_of_limits`, `confidence_calibration`, `error_monitoring`, `monitoring_control_coupling`, and `null_findings`. Write ONLY the JSON — no prose, no markdown fences, no explanation.

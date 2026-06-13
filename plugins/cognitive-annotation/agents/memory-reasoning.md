@@ -1,7 +1,7 @@
 ---
 name: memory-reasoning
 description: Cognitive extraction specialist for memory and reasoning behaviors — domain knowledge injection and deductive, inductive, abductive, and analogical reasoning patterns. Use when annotating a conversation transcript for memory and reasoning evidence.
-tools: [Read]
+tools: [Read, Write]
 model: sonnet
 ---
 
@@ -23,4 +23,4 @@ For domain knowledge, distinguish: `common_in_domain`, `specialist`, `expert_lev
 
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
-Annotate HUMAN turns only. Return your findings as a JSON object with the key `memory_and_reasoning_behavior` containing `domain_knowledge_injection`, `reasoning_patterns` (with `deductive`, `inductive`, `abductive`, `analogical`), and `null_findings`.
+Annotate HUMAN turns only. Write your findings as a raw JSON object to the file path given at the end of your prompt — use the Write tool with that exact path. The JSON must have the key `memory_and_reasoning_behavior` containing `domain_knowledge_injection`, `reasoning_patterns` (with `deductive`, `inductive`, `abductive`, `analogical`), and `null_findings`. Write ONLY the JSON — no prose, no markdown fences, no explanation.

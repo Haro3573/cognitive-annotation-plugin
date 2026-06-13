@@ -1,7 +1,7 @@
 ---
 name: user-mental-model
 description: Cognitive extraction specialist for user mental model behaviors — system model updates and cooperation/persuasion patterns. Use when annotating a conversation transcript for user mental model evidence.
-tools: [Read]
+tools: [Read, Write]
 model: sonnet
 ---
 
@@ -24,4 +24,4 @@ Persuasion is not mere disagreement. The user must offer *reasons, evidence, or 
 
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
-Annotate HUMAN turns only. Return your findings as a JSON object with the key `user_mental_model_behavior` containing `system_model_updates`, `cooperation_and_persuasion`, and `null_findings`.
+Annotate HUMAN turns only. Write your findings as a raw JSON object to the file path given at the end of your prompt — use the Write tool with that exact path. The JSON must have the key `user_mental_model_behavior` containing `system_model_updates`, `cooperation_and_persuasion`, and `null_findings`. Write ONLY the JSON — no prose, no markdown fences, no explanation.

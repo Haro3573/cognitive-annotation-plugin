@@ -1,5 +1,5 @@
 ---
-description: Annotate a conversation transcript using 4 cognitive extraction agents + a prediction agent — extracts behavioral excerpts, predicts what the user would have typed at each annotated turn based on their profile, then scores behavioral consistency (predicted vs actual). For batch annotation, call queue_all_sessions first then invoke with no argument.
+description: Annotate a conversation transcript using 4 cognitive extraction agents — extracts behavioral excerpts, retrieves the most similar past excerpt per subcategory from cognitive.db, then scores cross-session behavioral consistency (current vs past). For batch annotation, call queue_all_sessions first then invoke with no argument.
 ---
 
 You are a 5-agent cognitive annotation pipeline. Run all steps for every session.
@@ -14,29 +14,47 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` and `transcript` present → single-session mode; extract `conversation_name` and `parsed_path` from the result. Use `transcript` as the session JSON string.
+- `status == "ready"` and `transcript` present → single-session mode (small session); extract `conversation_name` and `parsed_path`. Use `transcript` as the session JSON string.
+- `status == "ready"` and `windows` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `windows`. Process each window sequentially through Step 2 (windowed path).
 - `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, use the Read tool on `parsed_path` to get the transcript JSON string, then process through Steps 2–5.
 
 ---
 
 **Step 2 — Extract cognitive behaviors (4 agents in parallel)**
 
-Parse the transcript string as JSON. Pass it to all 4 agents simultaneously:
+Choose a temp file prefix for this annotation run — use flat files directly in `$TMPDIR`, no subdirectory:
+```
+{prefix} = $TMPDIR/cog_{conversation_name[:8]}
+```
+Expand `$TMPDIR` to its actual value (e.g. run `echo $TMPDIR` via Bash if needed).
 
-- **executive-function**: "Annotate the following transcript for executive function behaviors (planning, inhibition, shifting). Annotate HUMAN turns only.\n\n[transcript]"
-- **metacognition**: "Annotate the following transcript for metacognitive behaviors (knowledge of limits, confidence calibration, error monitoring, monitoring-control coupling). Annotate HUMAN turns only.\n\n[transcript]"
-- **memory-reasoning**: "Annotate the following transcript for memory and reasoning behaviors (domain knowledge injection, deductive/inductive/abductive/analogical reasoning). Annotate HUMAN turns only.\n\n[transcript]"
-- **user-mental-model**: "Annotate the following transcript for user mental model behaviors (system model updates, cooperation and persuasion). Annotate HUMAN turns only.\n\n[transcript]"
+**Small session** (`transcript` present): parse the transcript string as JSON. Pass it to all 4 agents simultaneously — replace `[transcript]` with the transcript JSON string and `{prefix}` with the actual prefix:
 
-Combine results into `annotation_results_new` using these exact rules:
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_executive_function.json"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_metacognition.json"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_memory_reasoning.json"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_user_mental_model.json"`
 
-1. **Strip the `_behavior` suffix** from each agent's top-level key:
+After all 4 agents complete, read the 4 output files. Build `annotation_results_new` from their contents (apply key-stripping rules below).
+
+**Large session** (`windows` present): for each window N in `windows` sequentially, pass that window array to all 4 agents in parallel with per-window output paths:
+
+- **executive-function** output path: `{prefix}_executive_function_w{N}.json`
+- **metacognition** output path: `{prefix}_metacognition_w{N}.json`
+- **memory-reasoning** output path: `{prefix}_memory_reasoning_w{N}.json`
+- **user-mental-model** output path: `{prefix}_user_mental_model_w{N}.json`
+
+After all windows complete, read all per-window files. Merge per category by concatenating each subcategory list across windows (e.g., all `planning_behavior` items from w0 + w1 + ...). Include `null_findings` only from windows where all other subcategories in that category were empty. Build `annotation_results_new` from merged results.
+
+Apply these rules when building `annotation_results_new` from file contents:
+
+1. **Strip the `_behavior` suffix** from each file's top-level key:
    - `executive_function_behavior` → `executive_function`
    - `metacognition_behavior` → `metacognition`
    - `memory_and_reasoning_behavior` → `memory_and_reasoning`
    - `user_mental_model_behavior` → `user_mental_model`
 
-2. **Preserve the inner subcategory-keyed structure exactly** as the agent returned it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will cause `classify_excerpts` to return `task_count: 0` because `normalize_annotation_results` iterates subcategory keys, not a generic `"excerpts"` key.
+2. **Preserve the inner subcategory-keyed structure exactly** as the agent wrote it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will cause `classify_excerpts` to return `task_count: 0` because `normalize_annotation_results` iterates subcategory keys, not a generic `"excerpts"` key.
 
 ```json
 {
@@ -73,62 +91,62 @@ Combine results into `annotation_results_new` using these exact rules:
 
 ---
 
-**Step 3 — Predict user messages**
+**Step 3 — Prepare classification**
 
-Read `wiki/pages/overview.md` if it exists (the cognitive profile). If absent, use `"No profile yet."`.
+Call `classify_excerpts` with `conversation_name` and `annotation_results_new`. (Do NOT pass `context_history` — session_history was already written to the DB by `resolve_transcript`.)
 
-Collect the annotated turn indices: all unique `turn` values across all categories in `annotation_results_new`.
+The tool queries cognitive.db for past excerpts in the same subcategory from other sessions, and returns a task list where each task has a `past_candidates` array.
 
-Dispatch the **predictor** agent:
-
-```
-"Given this user's cognitive profile and the transcript, predict what the user would have typed at each annotated turn.
-
-COGNITIVE PROFILE:
-[overview.md contents, or 'No profile yet.']
-
-TRANSCRIPT:
-[transcript as JSON]
-
-ANNOTATED TURN INDICES:
-[sorted list of turn indices]"
-```
-
-Extract `predictions` from the agent's output: `{"turn_index": "predicted_text", ...}`.
-
----
-
-**Step 4 — Prepare classification**
-
-Call `classify_excerpts` with `conversation_name`, `annotation_results_new`, and `predictions`. (Do NOT pass `context_history` — session_history was already written to the DB by `resolve_transcript`.)
-
-- If `task_count == 0` → set `relation_scores = {}` and go to Step 5.
+- If `task_count == 0` → set `relation_scores = {}`, `matched_past = {}`, and go to Step 4.
 - If tasks are returned → dispatch the **classifier** agent with the full task list:
 
   ```
-  "Classify the following behavioral excerpts. Return relation_scores JSON.\n\n[task list as JSON array]"
+  "Classify the following behavioral excerpts for cross-session behavioral consistency.
+
+  The response includes an `evaluators` dict keyed by category — use evaluators[task.category] as the scoring rubric for each task.
+
+  For each task:
+  - If past_candidates is empty: skip it entirely — do NOT include it in your response.
+  - Otherwise: read the current excerpt (excerpt_text, user_text) and all past_candidates. Pick the most semantically similar past candidate by index number. Apply evaluators[task.category] to score behavioral consistency between the current excerpt and the selected past candidate.
+
+  Return ONLY:
+  {
+    \"relation_scores\": {\"excerpt_id\": \"accepted|partially_matched|rejected\"},
+    \"matched_indices\": {\"excerpt_id\": 0}
+  }
+  Only include excerpts that had past_candidates. Do not include tasks with empty past_candidates.
+
+  [full classify_excerpts response as JSON]"
   ```
 
-  The agent applies each task's `evaluator_prompt` to its `(predicted_text, user_text, excerpt_text)` triplet and returns `{"relation_scores": {excerpt_id: score}}`. Extract `relation_scores` from the agent's output.
+  Extract `relation_scores` and `matched_indices` from the agent's output.
+
+  Resolve `matched_indices` to `matched_past` (IDs) using the task list you already have:
+  ```
+  matched_past = {}
+  for excerpt_id, candidate_index in matched_indices.items():
+      task = find task where task["excerpt_id"] == excerpt_id
+      matched_past[excerpt_id] = task["past_candidates"][candidate_index]["excerpt_id"]
+  ```
 
 ---
 
-**Step 5 — Persist**
+**Step 4 — Persist**
 
-Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `relation_scores`, and `predictions`. (Do NOT pass `context_history` — session_history is already in the DB.)
+Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `relation_scores`, and `matched_past`. (Do NOT pass `context_history` — session_history is already in the DB.)
 
 ---
 
-**Step 6 — Update wiki**
+**Step 5 — Update wiki**
 
 Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s).
 
-- **Single session**: call immediately after Step 5.
+- **Single session**: call immediately after Step 4.
 - **Batch**: call once after all sessions complete (not per-session — defers overview rebuild to the end).
 
 ---
 
-**Step 7 — Output**
+**Step 6 — Output**
 
 - **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
 - **Batch**: print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped` per session. Print totals and wiki ingest summary at the end.
