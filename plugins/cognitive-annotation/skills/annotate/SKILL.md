@@ -16,7 +16,7 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
 - `status == "ready"` and `transcript` present → single-session mode (small session); extract `conversation_name` and `parsed_path`. Use `transcript` as the session JSON string.
 - `status == "ready"` and `windows` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `windows`. Process each window sequentially through Step 2 (windowed path).
-- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, use the Read tool on `parsed_path` to get the transcript JSON string, then process through Steps 2–5.
+- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, call `resolve_transcript` with `argument = parsed_path`. If `status == "ready"` and `transcript` present → small session; if `windows` present → large session. Extract `conversation_name` and `parsed_path` from the result. Then process through Steps 2–5 using the transcript or windows exactly as in single-session mode.
 
 ---
 
