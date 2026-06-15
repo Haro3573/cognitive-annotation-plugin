@@ -151,4 +151,7 @@ Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annot
 **Step 6 — Output**
 
 - **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
-- **Batch**: print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped` per session. Print totals and wiki ingest summary at the end.
+- **Batch**: for each session:
+  - If the session was skipped (resolve_transcript failed) → print `✗ {conversation_name[:8]} — skipped ({error_message_or_"no_valid_sessions"})`
+  - Otherwise → print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped`
+  - Print totals (sessions processed, sessions skipped/failed, excerpts aligned, excerpts skipped) and wiki ingest summary at the end.
