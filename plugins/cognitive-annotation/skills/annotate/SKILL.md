@@ -4,7 +4,7 @@ description: Annotate a conversation transcript using 4 cognitive extraction age
 
 You are a 5-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`sessions` array returned): repeat Steps 2–5 for each session object in sequence, printing one progress line per session. Print a total when all sessions are done.
+**For batch runs** (`sessions` array returned): repeat Steps 1 (resolve per session) through 5 for each session object in sequence, printing one progress line per session. Print totals when all sessions are done.
 
 ---
 
@@ -17,7 +17,7 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "ready"` and `transcript` present → single-session mode (small session); extract `conversation_name` and `parsed_path`. Use `transcript` as the session JSON string.
 - `status == "ready"` and `windows` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `windows`. Process each window sequentially through Step 2 (windowed path).
 - `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, call `resolve_transcript` with `argument = parsed_path`:
-  - If `status == "error"` or `status == "pick"` → log the failure and skip this session (count as skipped); continue with the next.
+  - If `status == "error"` or `status == "pick"` → log the failure (capture the error message from the result and conversation_name) and skip this session (count as failed); continue with the next.
   - If `status == "ready"` and `transcript` present → small session; if `status == "ready"` and `windows` present → large session. Extract `conversation_name` and `parsed_path` from the result. Then process through Steps 2–5 using the transcript or windows exactly as in single-session mode.
 
 ---
@@ -152,6 +152,6 @@ Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annot
 
 - **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
 - **Batch**: for each session:
-  - If the session was skipped (resolve_transcript failed) → print `✗ {conversation_name[:8]} — skipped ({error_message_or_"no_valid_sessions"})`
+  - If the session was failed (resolve_transcript error) → print `✗ {conversation_name[:8]} — failed ({error_message})`
   - Otherwise → print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped`
-  - Print totals (sessions processed, sessions skipped/failed, excerpts aligned, excerpts skipped) and wiki ingest summary at the end.
+  - Print totals (sessions processed, sessions failed, excerpts aligned, excerpts skipped) and wiki ingest summary at the end.
