@@ -98,7 +98,7 @@ Apply these rules when building `annotation_results_new` from file contents:
 Call `persist_annotation` with `conversation_name` and `annotation_results_new`.
 
 The tool writes all excerpts to cognitive.db, runs embedding-based sync to find the best
-cross-session match per excerpt, updates `subagent_comment` and similarity scores, and
+cross-session match per excerpt, updates `matched_excerpt_text` and similarity scores, and
 exports the session snapshot. No `relation_scores` or `matched_past` needed.
 
 ---

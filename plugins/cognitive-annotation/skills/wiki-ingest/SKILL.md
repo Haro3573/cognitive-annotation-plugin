@@ -45,7 +45,7 @@ Key queries for each session:
 ```bash
 # Behavioral events
 sqlite3 "$DB" "
-SELECT turn_index, category, subcategory, excerpt_text, subagent_comment,
+SELECT turn_index, category, subcategory, excerpt_text, matched_excerpt_text,
        matched_excerpt_id, composite_score
 FROM cognitive_alignments
 WHERE conversation_name = '<uuid>'
@@ -54,7 +54,7 @@ ORDER BY turn_index;"
 # Cross-session matches for this session's excerpts
 sqlite3 "$DB" "
 SELECT ca.excerpt_id, ca.subcategory, ca.excerpt_text,
-       ca.subagent_comment, ca.composite_score
+       ca.matched_excerpt_text, ca.composite_score
 FROM cognitive_alignments ca
 WHERE ca.conversation_name = '<uuid>'
   AND ca.matched_excerpt_id IS NOT NULL;"
