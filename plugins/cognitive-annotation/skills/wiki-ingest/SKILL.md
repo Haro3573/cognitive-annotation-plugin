@@ -45,23 +45,25 @@ Key queries for each session:
 ```bash
 # Behavioral events
 sqlite3 "$DB" "
-SELECT turn_index, category, subcategory, excerpt_text, subagent_comment, relation_score
+SELECT turn_index, category, subcategory, excerpt_text, subagent_comment,
+       matched_excerpt_id, composite_score
 FROM cognitive_alignments
 WHERE conversation_name = '<uuid>'
 ORDER BY turn_index;"
 
-# Relationship edges involving this session
+# Cross-session matches for this session's excerpts
 sqlite3 "$DB" "
-SELECT cr.relation_type, cr.source_excerpt_id, cr.target_excerpt_id
-FROM cognitive_relationships cr
-JOIN cognitive_alignments ca ON ca.excerpt_id = cr.source_excerpt_id
-WHERE ca.conversation_name = '<uuid>';"
+SELECT ca.excerpt_id, ca.subcategory, ca.excerpt_text,
+       ca.subagent_comment, ca.composite_score
+FROM cognitive_alignments ca
+WHERE ca.conversation_name = '<uuid>'
+  AND ca.matched_excerpt_id IS NOT NULL;"
 ```
 
 Parsed transcript: check `$PARSED/<uuid>.json`. If present, read it for the "What was discussed" section. If absent, write: *No parsed transcript available — behavioral data from DB only.*
 
 Print one progress line per session as it completes:
-`✓ <uuid[:8]> — <N> excerpt(s), <M> edge(s)`
+`✓ <uuid[:8]> — <N> excerpt(s), <M> cross-session match(es)`
 
 **Do not update `overview.md` during individual session ingests** — defer it to Step 4.
 
