@@ -14,11 +14,11 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` and `transcript` present → single-session mode (small session); extract `conversation_name` and `parsed_path`. Use `transcript` as the session JSON string.
-- `status == "ready"` and `windows` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `windows`. Process each window sequentially through Step 2 (windowed path).
+- `status == "ready"` and no `window_paths` → single-session mode (small session); extract `conversation_name` and `parsed_path`.
+- `status == "ready"` and `window_paths` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `window_paths`. Process each window sequentially through Step 2 (windowed path).
 - `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, call `resolve_transcript` with `argument = parsed_path`:
   - If `status == "error"` or `status == "pick"` → log the failure (capture the error message from the result and conversation_name) and skip this session (count as failed); continue with the next.
-  - If `status == "ready"` and `transcript` present → small session; if `status == "ready"` and `windows` present → large session. Extract `conversation_name` and `parsed_path` from the result. Then process through Steps 2–5 using the transcript or windows exactly as in single-session mode.
+  - If `status == "ready"` and no `window_paths` → small session; if `status == "ready"` and `window_paths` present → large session. Extract `conversation_name`, `parsed_path`, and `window_paths` (if present) from the result. Then process through Steps 2–5.
 
 ---
 
@@ -30,21 +30,21 @@ Choose a temp file prefix for this annotation run — use flat files directly in
 ```
 Expand `$TMPDIR` to its actual value (e.g. run `echo $TMPDIR` via Bash if needed).
 
-**Small session** (`transcript` present): parse the transcript string as JSON. Pass it to all 4 agents simultaneously — replace `[transcript]` with the transcript JSON string and `{prefix}` with the actual prefix:
+**Small session** (no `window_paths`): dispatch all 4 agents simultaneously — replace `{parsed_path}` and `{prefix}` with actual values:
 
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_executive_function.json"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_metacognition.json"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_memory_reasoning.json"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\n[transcript]\n\nOutput path: {prefix}_user_mental_model.json"`
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_executive_function.json"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_metacognition.json"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_memory_reasoning.json"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_user_mental_model.json"`
 
 After all 4 agents complete, read the 4 output files. Build `annotation_results_new` from their contents (apply key-stripping rules below).
 
-**Large session** (`windows` present): for each window N in `windows` sequentially, pass that window array to all 4 agents in parallel with per-window output paths:
+**Large session** (`window_paths` present): for each window N (0-indexed) in `window_paths` sequentially, dispatch all 4 agents in parallel:
 
-- **executive-function** output path: `{prefix}_executive_function_w{N}.json`
-- **metacognition** output path: `{prefix}_metacognition_w{N}.json`
-- **memory-reasoning** output path: `{prefix}_memory_reasoning_w{N}.json`
-- **user-mental-model** output path: `{prefix}_user_mental_model_w{N}.json`
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_executive_function_w{N}.json"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_metacognition_w{N}.json"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_memory_reasoning_w{N}.json"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_user_mental_model_w{N}.json"`
 
 After all windows complete, read all per-window files. Merge per category by concatenating each subcategory list across windows (e.g., all `planning_behavior` items from w0 + w1 + ...). Include `null_findings` only from windows where all other subcategories in that category were empty. Build `annotation_results_new` from merged results.
 
