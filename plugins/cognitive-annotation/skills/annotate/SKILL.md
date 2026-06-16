@@ -1,10 +1,10 @@
 ---
-description: Annotate a conversation transcript using 4 cognitive extraction agents — extracts behavioral excerpts, retrieves the most similar past excerpt per subcategory from cognitive.db, then scores cross-session behavioral consistency (current vs past). For batch annotation, call queue_all_sessions first then invoke with no argument.
+description: Annotate a conversation transcript using 4 cognitive extraction agents — extracts behavioral excerpts, then uses embedding similarity to match each excerpt to the most similar past excerpt in the same subcategory across sessions. For batch annotation, call queue_all_sessions first then invoke with no argument.
 ---
 
-You are a 5-agent cognitive annotation pipeline. Run all steps for every session.
+You are a 4-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`sessions` array returned): repeat Steps 1 (resolve per session) through 5 for each session object in sequence, printing one progress line per session. Print totals when all sessions are done.
+**For batch runs** (`sessions` array returned): repeat Steps 1 (resolve per session) through 4 for each session object in sequence, printing one progress line per session. Print totals when all sessions are done.
 
 ---
 
@@ -18,7 +18,7 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "ready"` and `window_paths` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `window_paths`. Process each window sequentially through Step 2 (windowed path).
 - `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, call `resolve_transcript` with `argument = parsed_path`:
   - If `status == "error"` or `status == "pick"` → log the failure (capture the error message from the result and conversation_name) and skip this session (count as failed); continue with the next.
-  - If `status == "ready"` and no `window_paths` → small session; if `status == "ready"` and `window_paths` present → large session. Extract `conversation_name`, `parsed_path`, and `window_paths` (if present) from the result. Then process through Steps 2–5.
+  - If `status == "ready"` and no `window_paths` → small session; if `status == "ready"` and `window_paths` present → large session. Extract `conversation_name`, `parsed_path`, and `window_paths` (if present) from the result. Then process through Steps 2–4.
 
 ---
 
@@ -56,7 +56,7 @@ Apply these rules when building `annotation_results_new` from file contents:
    - `memory_and_reasoning_behavior` → `memory_and_reasoning`
    - `user_mental_model_behavior` → `user_mental_model`
 
-2. **Preserve the inner subcategory-keyed structure exactly** as the agent wrote it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will cause `classify_excerpts` to return `task_count: 0` because `normalize_annotation_results` iterates subcategory keys, not a generic `"excerpts"` key.
+2. **Preserve the inner subcategory-keyed structure exactly** as the agent wrote it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will be silently ignored by `normalize_annotation_results`, which iterates subcategory keys, not a generic `"excerpts"` key.
 
 ```json
 {
@@ -93,62 +93,26 @@ Apply these rules when building `annotation_results_new` from file contents:
 
 ---
 
-**Step 3 — Prepare classification**
+**Step 3 — Persist**
 
-Call `classify_excerpts` with `conversation_name` and `annotation_results_new`. (Do NOT pass `context_history` — session_history was already written to the DB by `resolve_transcript`.)
+Call `persist_annotation` with `conversation_name` and `annotation_results_new`.
 
-The tool queries cognitive.db for past excerpts in the same subcategory from other sessions, and returns a task list where each task has a `past_candidates` array.
-
-- If `task_count == 0` → set `relation_scores = {}`, `matched_past = {}`, and go to Step 4.
-- If tasks are returned → dispatch the **classifier** agent with the full task list:
-
-  ```
-  "Classify the following behavioral excerpts for cross-session behavioral consistency.
-
-  The response includes an `evaluators` dict keyed by category — use evaluators[task.category] as the scoring rubric for each task.
-
-  For each task:
-  - If past_candidates is empty: skip it entirely — do NOT include it in your response.
-  - Otherwise: read the current excerpt (excerpt_text, user_text) and all past_candidates. Pick the most semantically similar past candidate by index number. Apply evaluators[task.category] to score behavioral consistency between the current excerpt and the selected past candidate.
-
-  Return ONLY:
-  {
-    \"relation_scores\": {\"excerpt_id\": \"accepted|partially_matched|rejected\"},
-    \"matched_indices\": {\"excerpt_id\": 0}
-  }
-  Only include excerpts that had past_candidates. Do not include tasks with empty past_candidates.
-
-  [full classify_excerpts response as JSON]"
-  ```
-
-  Extract `relation_scores` and `matched_indices` from the agent's output.
-
-  Resolve `matched_indices` to `matched_past` (IDs) using the task list you already have:
-  ```
-  matched_past = {}
-  for excerpt_id, candidate_index in matched_indices.items():
-      task = find task where task["excerpt_id"] == excerpt_id
-      matched_past[excerpt_id] = task["past_candidates"][candidate_index]["excerpt_id"]
-  ```
+The tool writes all excerpts to cognitive.db, runs embedding-based sync to find the best
+cross-session match per excerpt, updates `subagent_comment` and similarity scores, and
+exports the session snapshot. No `relation_scores` or `matched_past` needed.
 
 ---
 
-**Step 4 — Persist**
-
-Call `persist_annotation` with `conversation_name`, `annotation_results_new`, `relation_scores`, and `matched_past`. (Do NOT pass `context_history` — session_history is already in the DB.)
-
----
-
-**Step 5 — Update wiki**
+**Step 4 — Update wiki**
 
 Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s).
 
-- **Single session**: call immediately after Step 4.
+- **Single session**: call immediately after Step 3.
 - **Batch**: call once after all sessions complete (not per-session — defers overview rebuild to the end).
 
 ---
 
-**Step 6 — Output**
+**Step 5 — Output**
 
 - **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
 - **Batch**: for each session:
