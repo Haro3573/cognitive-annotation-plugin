@@ -1,8 +1,0 @@
-{
-  "name": "cognitive-agent",
-  "version": "1.0.0",
-  "description": "Real-time cognitive alignment suggestions — fires at end of each AI response, reads the user's Cognitive Profile snapshot (session.json + session.index.md), and surfaces a lightweight ≤3-sentence insight shaped by behavioral history.",
-  "author": {
-    "name": "Haro3573"
-  }
-}

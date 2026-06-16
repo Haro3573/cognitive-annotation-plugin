@@ -4,20 +4,10 @@ A Claude Code plugin that annotates conversation transcripts with cognitive beha
 
 ## Installation
 
-This marketplace contains two plugins. Install both:
-
-**cognitive-annotation** — the 4-agent annotation pipeline:
 ```
 /plugin marketplace add Haro3573/cognitive-annotation-plugin
 /plugin install cognitive-annotation
 ```
-
-**cognitive-agent** — the real-time inline suggestion agent:
-```
-/plugin install cognitive-agent
-```
-
-(The marketplace add command only needs to run once; both plugins live in the same marketplace.)
 
 ## Usage
 
@@ -103,29 +93,26 @@ User
 - `tools: []` — no file access; the transcript arrives entirely in the prompt
 - `model: sonnet` — Sonnet balances annotation depth with speed
 
-Subagents are invoked sequentially (Claude Code subagents cannot run in parallel within a single session). Each returns a JSON object; the skill merges them.
+All four agents are dispatched simultaneously. Each returns a JSON object; the skill merges them.
 
 ### Execution flow
 
 ```
 1. /cognitive-annotation:annotate <path>
         │
-2. Skill reads file at <path>
+2. resolve_transcript → flat ParsedMessage rows
         │
-3. Skill calls Agent tool → executive-function subagent
-        │   subagent reasons over transcript
-        │   returns { executive_function_behavior: { ... } }
+3. Skill dispatches all 4 Agent calls simultaneously:
+        ├── executive-function → { executive_function_behavior: { ... } }
+        ├── metacognition      → { metacognition_behavior: { ... } }
+        ├── memory-reasoning   → { memory_and_reasoning_behavior: { ... } }
+        └── user-mental-model  → { user_mental_model_behavior: { ... } }
         │
-4. Skill calls Agent tool → metacognition subagent
-        │   returns { metacognition_behavior: { ... } }
+4. Skill merges all four → annotation_results_new
         │
-5. Skill calls Agent tool → memory-reasoning subagent
-        │   returns { memory_and_reasoning_behavior: { ... } }
+5. classify_excerpts + classifier agent → relation_scores + matched_past
         │
-6. Skill calls Agent tool → user-mental-model subagent
-        │   returns { user_mental_model_behavior: { ... } }
-        │
-7. Skill merges all four → combined JSON + summary
+6. persist_annotation → cognitive.db + .cognitive/session.json
 ```
 
 ### Annotation design principles

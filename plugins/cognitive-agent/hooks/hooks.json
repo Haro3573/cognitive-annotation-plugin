@@ -1,4 +1,0 @@
-{
-  "description": "Cognitive agent hooks — no active hooks (Agent Block removed; post-session prediction pipeline now handles behavioral analysis)",
-  "hooks": {}
-}
