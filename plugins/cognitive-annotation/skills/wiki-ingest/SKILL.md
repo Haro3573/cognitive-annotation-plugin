@@ -16,6 +16,17 @@ PARSED="${CLAUDE_PROJECT_DIR}/session_collection/parsed"
 
 If `$DB` does not exist as a file, stop and report: "cognitive.db not found — set COGNITIVE_DB_PATH or run from the project root."
 
+Then sync all wiki tables from the database before reading or writing any page:
+
+```bash
+python "$CLAUDE_PROJECT_DIR/pipeline/wiki_sync.py" \
+  --db "$DB" \
+  --wiki "$WIKI"
+```
+
+If the script exits non-zero, stop and report the full stderr output.
+Print the stdout summary before continuing to Step 2.
+
 ---
 
 **Step 2 — Discover sessions to ingest**
@@ -45,8 +56,9 @@ Key queries for each session:
 ```bash
 # Behavioral events
 sqlite3 "$DB" "
-SELECT turn_index, category, subcategory, excerpt_text, matched_excerpt_text,
-       matched_excerpt_id, composite_score
+SELECT turn_index, category, subcategory, excerpt_text,
+       sub_type, confidence, rationale, mundane_alternative,
+       matched_excerpt_text, matched_excerpt_id, composite_score
 FROM cognitive_alignments
 WHERE conversation_name = '<uuid>'
 ORDER BY turn_index;"
