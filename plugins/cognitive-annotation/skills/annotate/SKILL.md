@@ -10,15 +10,17 @@ You are a 4-agent cognitive annotation pipeline. Run all steps for every session
 
 **Step 1 — Resolve transcript**
 
+> **Token note:** Pass a file *path* as the argument (e.g. `/path/to/session.jsonl`), not an @mention. @mention expansion inlines the full raw JSONL into context before this tool call — 10–100× larger than the stripped view the server writes to disk. If `$ARGUMENTS` looks like expanded NDJSON content rather than a path, warn the user and stop; ask them to pass the file path directly or use the queue system.
+
 Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
 - `status == "ready"` and no `window_paths` → single-session mode (small session); extract `conversation_name` and `parsed_path`.
 - `status == "ready"` and `window_paths` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `window_paths`. Process each window sequentially through Step 2 (windowed path).
-- `sessions` present → batch mode; each object has `conversation_name` and `parsed_path`. For each session, call `resolve_transcript` with `argument = parsed_path`:
-  - If `status == "error"` or `status == "pick"` → log the failure (capture the error message from the result and conversation_name) and skip this session (count as failed); continue with the next.
-  - If `status == "ready"` and no `window_paths` → small session; if `status == "ready"` and `window_paths` present → large session. Extract `conversation_name`, `parsed_path`, and `window_paths` (if present) from the result. Then process through Steps 2–4.
+- `sessions` present → batch mode; each object has `conversation_name`, `parsed_path`, and `user_turn_count`. For each session:
+  - If `user_turn_count` ≤ 50: small session — skip the per-session `resolve_transcript` call (the parsed_path is already returned in the batch result). Process through Steps 2–4 with no `window_paths`.
+  - If `user_turn_count` > 50: large session — call `resolve_transcript` with `argument = parsed_path` to get `window_paths`. If `status == "error"` or `status == "pick"` → log the failure and skip.
 
 ---
 
@@ -37,7 +39,7 @@ Expand `$TMPDIR` to its actual value (e.g. run `echo $TMPDIR` via Bash if needed
 - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_memory_reasoning.json"`
 - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_user_mental_model.json"`
 
-After all 4 agents complete, read the 4 output files. Build `annotation_results_new` from their contents (apply key-stripping rules below).
+After all 4 agents complete, note the `{prefix}` value — you will pass it to `persist_annotation` in Step 3.
 
 **Large session** (`window_paths` present): for each window N (0-indexed) in `window_paths` sequentially, dispatch all 4 agents in parallel:
 
@@ -46,60 +48,19 @@ After all 4 agents complete, read the 4 output files. Build `annotation_results_
 - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_memory_reasoning_w{N}.json"`
 - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_user_mental_model_w{N}.json"`
 
-After all windows complete, read all per-window files. Merge per category by concatenating each subcategory list across windows (e.g., all `planning_behavior` items from w0 + w1 + ...). Include `null_findings` only from windows where all other subcategories in that category were empty. Build `annotation_results_new` from merged results.
-
-Apply these rules when building `annotation_results_new` from file contents:
-
-1. **Strip the `_behavior` suffix** from each file's top-level key:
-   - `executive_function_behavior` → `executive_function`
-   - `metacognition_behavior` → `metacognition`
-   - `memory_and_reasoning_behavior` → `memory_and_reasoning`
-   - `user_mental_model_behavior` → `user_mental_model`
-
-2. **Preserve the inner subcategory-keyed structure exactly** as the agent wrote it. The value under each category key is the agent's inner dict verbatim (e.g. `{"planning_behavior": [...], "shifting_behavior": [...], "null_findings": {...}}`). Do NOT flatten excerpts into a single list — a flat `{"excerpts": [...]}` will be silently ignored by `normalize_annotation_results`, which iterates subcategory keys, not a generic `"excerpts"` key.
-
-```json
-{
-  "executive_function": {
-    "planning_behavior": [...],
-    "inhibition_behavior": [...],
-    "shifting_behavior": [...],
-    "null_findings": {...}
-  },
-  "metacognition": {
-    "knowledge_of_limits": [...],
-    "confidence_calibration": [...],
-    "error_monitoring": [...],
-    "monitoring_control_coupling": [...],
-    "null_findings": {...}
-  },
-  "memory_and_reasoning": {
-    "domain_knowledge_injection": [...],
-    "reasoning_patterns": {
-      "deductive": [...],
-      "inductive": [...],
-      "abductive": [...],
-      "analogical": [...]
-    },
-    "null_findings": {...}
-  },
-  "user_mental_model": {
-    "system_model_updates": [...],
-    "cooperation_and_persuasion": [...],
-    "null_findings": {...}
-  }
-}
-```
+After all windows complete, note the `{prefix}` and `window_count = len(window_paths)` — pass both to `persist_annotation` in Step 3.
 
 ---
 
 **Step 3 — Persist**
 
-Call `persist_annotation` with `conversation_name` and `annotation_results_new`.
+Call `persist_annotation` with:
+- `conversation_name`
+- `output_prefix` — the `{prefix}` value from Step 2
+- `parsed_path` — the `parsed_path` value returned by `resolve_transcript` in Step 1
+- `window_count` — number of windows processed (`len(window_paths)` for large sessions; omit for single-window sessions)
 
-The tool writes all excerpts to cognitive.db, runs embedding-based sync to find the best
-cross-session match per excerpt, updates `matched_excerpt_text` and similarity scores, and
-exports the session snapshot. No `relation_scores` or `matched_past` needed.
+The tool reads the agent output files, assembles annotation results, writes all excerpts to cognitive.db, and runs embedding-based sync to find the best cross-session match per excerpt.
 
 ---
 
