@@ -4,7 +4,7 @@ description: Annotate a conversation transcript using 4 cognitive extraction age
 
 You are a 4-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`sessions` array returned): repeat Steps 1 (resolve per session) through 4 for each session object in sequence, printing one progress line per session. Print totals when all sessions are done.
+**For batch runs** (`mode: "batch"` returned in Step 1): repeat Steps 2–3 for each session in `sessions`, then run Steps 4–5 once at the end.
 
 ---
 
@@ -16,51 +16,38 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` and no `window_paths` → single-session mode (small session); extract `conversation_name` and `parsed_path`.
-- `status == "ready"` and `window_paths` present → single-session mode (large session); extract `conversation_name`, `parsed_path`, and `window_paths`. Process each window sequentially through Step 2 (windowed path).
-- `sessions` present → batch mode; each object has `conversation_name`, `parsed_path`, and `user_turn_count`. For each session:
-  - If `user_turn_count` ≤ 50: small session — skip the per-session `resolve_transcript` call (the parsed_path is already returned in the batch result). Process through Steps 2–4 with no `window_paths`.
-  - If `user_turn_count` > 50: large session — call `resolve_transcript` with `argument = parsed_path` to get `window_paths`. If `status == "error"` or `status == "pick"` → log the failure and skip.
+- `status == "ready"` → proceed to Step 2 using the `mode` field.
 
 ---
 
 **Step 2 — Extract cognitive behaviors (4 agents in parallel)**
 
-Choose a temp file prefix for this annotation run — use flat files directly in `$TMPDIR`, no subdirectory:
-```
-{prefix} = $TMPDIR/cog_{conversation_name[:8]}
-```
-Expand `$TMPDIR` to its actual value (e.g. run `echo $TMPDIR` via Bash if needed).
+Use `output_prefix` from the Step 1 result — do not construct temp paths manually.
 
-**Small session** (no `window_paths`): dispatch all 4 agents simultaneously — replace `{parsed_path}` and `{prefix}` with actual values:
+**mode `"single"`**: dispatch all 4 agents simultaneously using `parsed_path` and `output_prefix`:
 
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_executive_function.json"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_metacognition.json"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_memory_reasoning.json"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {prefix}_user_mental_model.json"`
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_executive_function.json"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_metacognition.json"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_memory_reasoning.json"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_user_mental_model.json"`
 
-After all 4 agents complete, note the `{prefix}` value — you will pass it to `persist_annotation` in Step 3.
+**mode `"windowed"`**: for each path in `window_paths` sequentially (position index i starting at 0), dispatch all 4 agents in parallel:
 
-**Large session** (`window_paths` present): for each window N (0-indexed) in `window_paths` sequentially, dispatch all 4 agents in parallel:
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_executive_function_w{i}.json"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_metacognition_w{i}.json"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_memory_reasoning_w{i}.json"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_user_mental_model_w{i}.json"`
 
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_executive_function_w{N}.json"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_metacognition_w{N}.json"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_memory_reasoning_w{N}.json"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[N]}\n\nOutput path: {prefix}_user_mental_model_w{N}.json"`
-
-After all windows complete, note the `{prefix}` and `window_count = len(window_paths)` — pass both to `persist_annotation` in Step 3.
+**mode `"batch"`**: for each session in `sessions`:
+- If `window_paths` is empty → dispatch as **single** using the session's `parsed_path` and `output_prefix`.
+- If `window_paths` is non-empty → dispatch as **windowed** using the session's `window_paths` and `output_prefix`.
 
 ---
 
 **Step 3 — Persist**
 
 Call `persist_annotation` with:
-- `conversation_name`
-- `output_prefix` — the `{prefix}` value from Step 2
-- `parsed_path` — the `parsed_path` value returned by `resolve_transcript` in Step 1
-- `window_count` — number of windows processed (`len(window_paths)` for large sessions; omit for single-window sessions)
-
-The tool reads the agent output files, assembles annotation results, writes all excerpts to cognitive.db, and runs embedding-based sync to find the best cross-session match per excerpt.
+- `output_prefix` — the value from Step 1 (for batch: each session's `output_prefix`)
 
 ---
 
@@ -68,15 +55,15 @@ The tool reads the agent output files, assembles annotation results, writes all 
 
 Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s).
 
-- **Single session**: call immediately after Step 3.
+- **Single/windowed**: call immediately after Step 3.
 - **Batch**: call once after all sessions complete (not per-session — defers overview rebuild to the end).
 
 ---
 
 **Step 5 — Output**
 
-- **Single session**: show the `persist_annotation` summary, then the wiki ingest summary.
+- **Single/windowed**: show the `persist_annotation` summary, then the wiki ingest summary.
 - **Batch**: for each session:
-  - If the session was failed (resolve_transcript error) → print `✗ {conversation_name[:8]} — failed ({error_message})`
-  - Otherwise → print `✓ {conversation_name[:8]} — {processed} aligned, {skipped} skipped`
-  - Print totals (sessions processed, sessions failed, excerpts aligned, excerpts skipped) and wiki ingest summary at the end.
+  - If Step 2 or Step 3 failed → print `✗ {conversation_name[:8]} — failed ({error_message})`
+  - Otherwise → print `✓ {conversation_name[:8]} — {excerpts_written} written, {excerpts_updated} updated`
+  - Print total session count and wiki ingest summary at the end.
