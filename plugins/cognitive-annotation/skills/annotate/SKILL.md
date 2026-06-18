@@ -38,9 +38,10 @@ Use `output_prefix` from the Step 1 result — do not construct temp paths manua
 - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_memory_reasoning_w{i}.json"`
 - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_user_mental_model_w{i}.json"`
 
-**mode `"batch"`**: for each session in `sessions`:
-- If `window_paths` is empty → dispatch as **single** using the session's `parsed_path` and `output_prefix`.
-- If `window_paths` is non-empty → dispatch as **windowed** using the session's `window_paths` and `output_prefix`.
+**mode `"batch"`**: for each `session` object in `sessions`:
+- If `session.window_paths` is empty → dispatch as **single** using `session.parsed_path` and `session.output_prefix`.
+- If `session.window_paths` is non-empty → dispatch as **windowed** using `session.window_paths` and `session.output_prefix`.
+- If any agent call in Step 2 or `persist_annotation` in Step 3 returns an error for a session, record the error and continue to the next session — do not stop the batch.
 
 ---
 
