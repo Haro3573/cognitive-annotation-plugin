@@ -58,7 +58,7 @@ Key queries for each session:
 # Behavioral events
 sqlite3 "$DB" "
 SELECT turn_index, category, subcategory, excerpt_text,
-       sub_type, confidence, rationale, mundane_alternative, trigger,
+       sub_type, confidence, rationale, mundane_alternative,
        matched_excerpt_text, matched_excerpt_id, composite_score
 FROM cognitive_alignments
 WHERE conversation_name = '<uuid>'

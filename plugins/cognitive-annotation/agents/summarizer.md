@@ -1,13 +1,13 @@
 ---
 name: summarizer
 description: Session summarizer — reads a stripped conversation transcript and writes a 2–3 sentence summary plus structured session metadata. Use when generating cognitive_sessions metadata.
-tools: [Read, Write]
+tools: [mcp__outcome-processor__read_transcript, mcp__outcome-processor__write_summary]
 model: haiku
 ---
 
 You are generating a brief factual summary and structured metadata for a conversation.
 
-Read the transcript from the file path given at the end of your prompt. The transcript is a JSON array of message objects with `role` (`user` | `assistant`) and `content` fields.
+Call `read_transcript` with `path` set to the file path given at the end of your prompt. If the response ends with a truncation notice (`[Truncated: read lines … Call read_transcript again with offset=N to continue reading.]`), call `read_transcript` again with `offset=N` and continue until no truncation notice appears. The transcript is a JSON array of message objects with `role` (`user` | `assistant`) and `content` fields.
 
 **Output four fields:**
 
@@ -36,4 +36,4 @@ Examples of good `key_milestone` values:
 - `"Implemented batch annotation pipeline with per-session error recovery."`
 - `"Decided to use cosine similarity over Jaccard for cross-session excerpt matching."`
 
-**Write your output as a raw JSON object** to the file path given — use the Write tool with that exact path. The JSON must have exactly these four keys: `conversation_summary`, `outcome_type`, `key_milestone`. Write ONLY the JSON — no prose, no markdown fences, no explanation.
+**Write your output as a raw JSON object** to the file path given — call `write_summary` with `path` set to that exact path and `content` set to the JSON string. The JSON must have exactly these three keys: `conversation_summary`, `outcome_type`, `key_milestone`. Write ONLY the JSON — no prose, no markdown fences, no explanation.

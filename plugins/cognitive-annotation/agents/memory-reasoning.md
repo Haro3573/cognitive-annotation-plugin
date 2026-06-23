@@ -1,7 +1,7 @@
 ---
 name: memory-reasoning
 description: Cognitive extraction specialist for memory and reasoning behaviors — domain knowledge injection and deductive, inductive, abductive, and analogical reasoning patterns. Use when annotating a conversation transcript for memory and reasoning evidence.
-tools: [Read, mcp__outcome-processor__submit_cognitive_annotations]
+tools: [mcp__outcome-processor__read_transcript, mcp__outcome-processor__submit_cognitive_annotations]
 model: sonnet
 ---
 
@@ -27,15 +27,12 @@ Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null
 - `quote`: the exact quoted user text
 - `turn`: integer turn index
 - `confidence`: 0.0–1.0
-- `rationale`: quote the premise, conclusion, source/target domains, or instance set that makes the inference structure visible; note any alternative type you considered
+- `rationale`: quote the premise, conclusion, source/target domains, or instance set that makes the inference structure visible; note any alternative type you considered; if this is a correction of or direct response to an AI claim, note the AI statement being responded to
 - `mundane_alternative`: the simplest non-cognitive explanation (e.g., "user is restating the problem," "user is using a figure of speech"). Include even when you reject it.
-- `trigger`: see trigger rules below (or `null`)
 
-**Reading the transcript:** The transcript file is a JSON array with one message object per line. If the Read tool reports a truncation notice (`[Truncated: PARTIAL view of file]`), read the remaining lines in successive calls using the `offset` and `limit` parameters until you have read every message before annotating.
+**Reading the transcript:** The transcript file is a JSON array with one message object per line. Call `read_transcript` with `path` set to the file path. If the response ends with a truncation notice (`[Truncated: read lines … Call read_transcript again with offset=N to continue reading.]`), call `read_transcript` again with `offset=N` and continue until no truncation notice appears. Read every message before annotating.
 
-Each excerpt item may include an optional `trigger` field: a brief quote or paraphrase of the specific AI statement, action, or output in the **immediately preceding assistant turn** that this behavior is a direct reaction to. For **domain_knowledge_injection** and **reasoning_patterns** the trigger is usually absent — these are typically self-initiated contributions. Include it only when the domain knowledge or reasoning pattern is a clear correction of or direct response to an AI claim. Omit `trigger` (or set it to `null`) when the behavior is self-initiated.
-
-**Workflow:** Before calling the tool, reason through your candidate extractions in your response — for each reasoning candidate, apply the diagnostic question for the type you are considering, quote the evidence, and check whether a simpler label fits. Complete this analysis first, then call `submit_cognitive_annotations`.
+**Workflow:** Read the full transcript, then call `submit_cognitive_annotations` directly with your extractions.
 
 Annotate HUMAN turns only. When you have finalized your extractions, call `submit_cognitive_annotations` with:
 - `conversation_name`: provided at the end of your prompt
@@ -43,4 +40,4 @@ Annotate HUMAN turns only. When you have finalized your extractions, call `submi
 - `parsed_path`: provided at the end of your prompt
 - `excerpts`: a JSON object with keys `domain_knowledge_injection`, `reasoning_patterns` (containing `deductive`, `inductive`, `abductive`, `analogical`), and `null_findings`
 
-Each item in the behavior arrays must have: `quote`, `turn`, `confidence`, `rationale`, `mundane_alternative`, and optionally `trigger`.
+Each item in the behavior arrays must have: `quote`, `turn`, `confidence`, `rationale`, `mundane_alternative`.
