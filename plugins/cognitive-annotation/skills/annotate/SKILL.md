@@ -25,27 +25,27 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 
 Use `output_prefix` from the Step 1 result — do not construct temp paths manually.
 
-**mode `"single"`**: dispatch all 5 agents simultaneously using `parsed_path` and `output_prefix`:
+**mode `"single"`**: dispatch all 5 agents simultaneously using `parsed_path`, `conversation_name`, and `output_prefix`:
 
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_executive_function.json"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_metacognition.json"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_memory_reasoning.json"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_user_mental_model.json"`
+- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
+- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
+- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
+- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
 - **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
 
 **mode `"windowed"`**: for each path in `window_paths` sequentially (position index i starting at 0), dispatch all 4 annotation agents in parallel. Additionally, dispatch the **summarizer once on `parsed_path`** (not per window) alongside window 0's agents:
 
 - For window 0 (i=0), dispatch all 5 in parallel:
-  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_executive_function_w0.json"`
-  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_metacognition_w0.json"`
-  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_memory_reasoning_w0.json"`
-  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_user_mental_model_w0.json"`
+  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
+  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
+  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
+  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
   - **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
 - For each subsequent window (i>0), dispatch the 4 annotation agents in parallel (no summarizer):
-  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_executive_function_w{i}.json"`
-  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_metacognition_w{i}.json"`
-  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_memory_reasoning_w{i}.json"`
-  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_user_mental_model_w{i}.json"`
+  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
+  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
+  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
+  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
 
 **mode `"batch"`**: for each `session` object in `sessions`:
 - If `session.window_paths` is empty → dispatch as **single** using `session.parsed_path` and `session.output_prefix`.
