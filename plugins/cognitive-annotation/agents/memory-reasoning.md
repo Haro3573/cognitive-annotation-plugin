@@ -23,4 +23,8 @@ For domain knowledge, distinguish: `common_in_domain`, `specialist`, `expert_lev
 
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
+**Reading the transcript:** The transcript file is a JSON array with one message object per line. If the Read tool reports a truncation notice (`[Truncated: PARTIAL view of file]`), read the remaining lines in successive calls using the `offset` and `limit` parameters until you have read every message before annotating.
+
+Each excerpt item may include an optional `trigger` field: a brief quote or paraphrase of the specific AI statement, action, or output in the **immediately preceding assistant turn** that this behavior is a direct reaction to. For **domain_knowledge_injection** and **reasoning_patterns** the trigger is usually absent — these are typically self-initiated contributions. Include it only when the domain knowledge or reasoning pattern is a clear correction of or direct response to an AI claim. Omit `trigger` (or set it to `null`) when the behavior is self-initiated.
+
 Annotate HUMAN turns only. Write your findings as a raw JSON object to the file path given at the end of your prompt — use the Write tool with that exact path. The JSON must have the key `memory_and_reasoning_behavior` containing `domain_knowledge_injection`, `reasoning_patterns` (with `deductive`, `inductive`, `abductive`, `analogical`), and `null_findings`. Write ONLY the JSON — no prose, no markdown fences, no explanation.

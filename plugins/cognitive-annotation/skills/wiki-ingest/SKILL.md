@@ -1,5 +1,6 @@
 ---
 description: Sync the wiki with cognitive.db. Discovers all annotated sessions that lack wiki pages and ingests them automatically — no UUIDs needed. Updates session pages, category pages, pattern pages, overview.md, index.md, and log.md. Run after annotation or any time the wiki is stale.
+model: sonnet
 ---
 
 You are running an automated wiki ingest. All steps are required.
@@ -57,7 +58,7 @@ Key queries for each session:
 # Behavioral events
 sqlite3 "$DB" "
 SELECT turn_index, category, subcategory, excerpt_text,
-       sub_type, confidence, rationale, mundane_alternative,
+       sub_type, confidence, rationale, mundane_alternative, trigger,
        matched_excerpt_text, matched_excerpt_id, composite_score
 FROM cognitive_alignments
 WHERE conversation_name = '<uuid>'
@@ -72,7 +73,11 @@ WHERE ca.conversation_name = '<uuid>'
   AND ca.matched_excerpt_id IS NOT NULL;"
 ```
 
-Parsed transcript: check `$PARSED/<uuid>.json`. If present, read it for the "What was discussed" section. If absent, write: *No parsed transcript available — behavioral data from DB only.*
+Session metadata: query `cognitive_sessions` for the turn count and conversation summary:
+```bash
+sqlite3 "$DB" "SELECT user_turn_count, conversation_summary FROM cognitive_sessions WHERE conversation_name = '<uuid>';"
+```
+Use `user_turn_count` for the `Turns:` header field and `conversation_summary` for the `## What was discussed` section body.
 
 Print one progress line per session as it completes:
 `✓ <uuid[:8]> — <N> excerpt(s), <M> cross-session match(es)`
