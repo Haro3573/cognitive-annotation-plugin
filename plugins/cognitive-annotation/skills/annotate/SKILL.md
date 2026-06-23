@@ -5,7 +5,7 @@ model: haiku
 
 You are a 4-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`mode: "batch"` returned in Step 1): repeat Steps 2–3 for each session in `sessions`, then run Steps 4–5 once at the end.
+**For batch runs** (`mode: "batch"` returned in Step 1): call `batch_start`, then dispatch a fresh subagent per session (each handles agents + persist internally), calling `batch_advance` between sessions; run Steps 4–5 once after all sessions complete.
 
 ---
 
@@ -70,10 +70,14 @@ While `next_session` is available:
    window_paths: {next_session.window_paths}
 
    Steps:
-   1. Dispatch all 5 agents in parallel (executive-function, metacognition,
-      memory-reasoning, user-mental-model, summarizer) using parsed_path if
-      window_paths is empty (single mode), or per-window using window_paths
-      (windowed mode) — matching the single/windowed dispatch rules in this skill.
+   1. If window_paths is empty (single mode): dispatch all 5 agents in parallel
+      (executive-function, metacognition, memory-reasoning, user-mental-model,
+      summarizer) using parsed_path.
+      If window_paths is non-empty (windowed mode): for window 0, dispatch all
+      5 agents in parallel using window_paths[0] (annotation agents use
+      window_paths[0] as their path; summarizer uses parsed_path). For each
+      subsequent window, dispatch only the 4 annotation agents in parallel
+      (no summarizer).
    2. Call persist_annotation with output_prefix.
    3. Return ONLY this JSON (no other text):
       {"conversation_name": "...", "success": true, "excerpts_written": N, "excerpts_updated": N, "error": ""}
