@@ -47,17 +47,53 @@ Use `output_prefix` from the Step 1 result — do not construct temp paths manua
   - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
   - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
 
-**mode `"batch"`**: for each `session` object in `sessions`:
-- If `session.window_paths` is empty → dispatch as **single** using `session.conversation_name`, `session.parsed_path`, and `session.output_prefix`.
-- If `session.window_paths` is non-empty → dispatch as **windowed** using `session.conversation_name`, `session.window_paths`, and `session.output_prefix`.
-- If any agent call in Step 2 or `persist_annotation` in Step 3 returns an error for a session, record the error and continue to the next session — do not stop the batch.
+**mode `"batch"`**:
+
+**Step 2-batch-A — Start coordinator**
+
+Call `batch_start` with `sessions` from Step 1.
+- If response has `done: true` → skip to Step 5 and show `summary_md`.
+- Otherwise record `job_id` and `next_session`.
+
+**Step 2-batch-B — Per-session subagent loop**
+
+While `next_session` is available:
+
+1. Dispatch a fresh **Haiku subagent** with this prompt (substitute values from `next_session`):
+
+   ```
+   You are a single-session annotation runner. Annotate exactly one session, then stop.
+
+   conversation_name: {next_session.conversation_name}
+   parsed_path: {next_session.parsed_path}
+   output_prefix: {next_session.output_prefix}
+   window_paths: {next_session.window_paths}
+
+   Steps:
+   1. Dispatch all 5 agents in parallel (executive-function, metacognition,
+      memory-reasoning, user-mental-model, summarizer) using parsed_path if
+      window_paths is empty (single mode), or per-window using window_paths
+      (windowed mode) — matching the single/windowed dispatch rules in this skill.
+   2. Call persist_annotation with output_prefix.
+   3. Return ONLY this JSON (no other text):
+      {"conversation_name": "...", "success": true, "excerpts_written": N, "excerpts_updated": N, "error": ""}
+      On failure: {"conversation_name": "...", "success": false, "excerpts_written": 0, "excerpts_updated": 0, "error": "<message>"}
+   ```
+
+2. Parse the subagent JSON result. If the result is missing or unparseable, synthesize:
+   `{"conversation_name": "{next_session.conversation_name}", "success": false, "excerpts_written": 0, "excerpts_updated": 0, "error": "subagent returned no result"}`
+
+3. Call `batch_advance` with `job_id` and the result object.
+   - Response has `next_session` → update `next_session` and continue the loop.
+   - Response has `done: true` → record `summary_md`, exit loop.
+   - Response is an error string (e.g. `"Error: ValueError: Unknown job_id"`) → stop the loop, display the error and whatever results were collected so far.
 
 ---
 
-**Step 3 — Persist**
+**Step 3 — Persist** *(single and windowed modes only — batch handles persist inside each subagent)*
 
 Call `persist_annotation` with:
-- `output_prefix` — the value from Step 1 (for batch: each session's `output_prefix`)
+- `output_prefix` — the value from Step 1
 
 ---
 
@@ -73,7 +109,4 @@ Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annot
 **Step 5 — Output**
 
 - **Single/windowed**: show the `persist_annotation` summary, then the wiki ingest summary.
-- **Batch**: for each session:
-  - If Step 2 or Step 3 failed → print `✗ {conversation_name[:8]} — failed ({error_message})`
-  - Otherwise → print `✓ {conversation_name[:8]} — {excerpts_written} written, {excerpts_updated} updated`
-  - Print total session count and wiki ingest summary at the end.
+- **Batch**: display the `summary_md` returned by the final `batch_advance` call, then the wiki-ingest summary.
