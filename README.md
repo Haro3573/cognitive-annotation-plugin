@@ -112,7 +112,7 @@ All four agents are dispatched simultaneously. Each returns a JSON object; the s
         │
 5. classify_excerpts + classifier agent → relation_scores + matched_past
         │
-6. persist_annotation → cognitive.db + .cognitive/session.json
+6. persist_annotation → cognitive.db
 ```
 
 ### Annotation design principles

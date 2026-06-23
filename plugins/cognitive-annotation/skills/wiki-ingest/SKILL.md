@@ -73,11 +73,15 @@ WHERE ca.conversation_name = '<uuid>'
   AND ca.matched_excerpt_id IS NOT NULL;"
 ```
 
-Session metadata: query `cognitive_sessions` for the turn count and conversation summary:
+Session metadata: query `cognitive_sessions` for turn count, summary, and structured metadata:
 ```bash
-sqlite3 "$DB" "SELECT user_turn_count, conversation_summary FROM cognitive_sessions WHERE conversation_name = '<uuid>';"
+sqlite3 "$DB" "SELECT user_turn_count, conversation_summary, session_metadata FROM cognitive_sessions WHERE conversation_name = '<uuid>';"
 ```
-Use `user_turn_count` for the `Turns:` header field and `conversation_summary` for the `## What was discussed` section body.
+Parse `session_metadata` as JSON to extract `outcome_type` and `key_milestone`. Use:
+- `user_turn_count` → `Turns:` header field
+- `outcome_type` → `Outcome:` header field (write `—` if absent)
+- `conversation_summary` → body of `## What was discussed`
+- `key_milestone` → **Key milestone** line immediately after the summary (omit the line entirely if NULL)
 
 Print one progress line per session as it completes:
 `✓ <uuid[:8]> — <N> excerpt(s), <M> cross-session match(es)`

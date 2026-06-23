@@ -1,5 +1,6 @@
 ---
 description: Annotate a conversation transcript using 4 cognitive extraction agents — extracts behavioral excerpts, then uses embedding similarity to match each excerpt to the most similar past excerpt in the same subcategory across sessions. For batch annotation, call queue_all_sessions first then invoke with no argument.
+model: haiku
 ---
 
 You are a 4-agent cognitive annotation pipeline. Run all steps for every session.
@@ -20,23 +21,31 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 
 ---
 
-**Step 2 — Extract cognitive behaviors (4 agents in parallel)**
+**Step 2 — Extract cognitive behaviors + generate summary (agents in parallel)**
 
 Use `output_prefix` from the Step 1 result — do not construct temp paths manually.
 
-**mode `"single"`**: dispatch all 4 agents simultaneously using `parsed_path` and `output_prefix`:
+**mode `"single"`**: dispatch all 5 agents simultaneously using `parsed_path` and `output_prefix`:
 
 - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_executive_function.json"`
 - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_metacognition.json"`
 - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_memory_reasoning.json"`
 - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nOutput path: {output_prefix}_user_mental_model.json"`
+- **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
 
-**mode `"windowed"`**: for each path in `window_paths` sequentially (position index i starting at 0), dispatch all 4 agents in parallel:
+**mode `"windowed"`**: for each path in `window_paths` sequentially (position index i starting at 0), dispatch all 4 annotation agents in parallel. Additionally, dispatch the **summarizer once on `parsed_path`** (not per window) alongside window 0's agents:
 
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_executive_function_w{i}.json"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_metacognition_w{i}.json"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_memory_reasoning_w{i}.json"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_user_mental_model_w{i}.json"`
+- For window 0 (i=0), dispatch all 5 in parallel:
+  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_executive_function_w0.json"`
+  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_metacognition_w0.json"`
+  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_memory_reasoning_w0.json"`
+  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nOutput path: {output_prefix}_user_mental_model_w0.json"`
+  - **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
+- For each subsequent window (i>0), dispatch the 4 annotation agents in parallel (no summarizer):
+  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_executive_function_w{i}.json"`
+  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_metacognition_w{i}.json"`
+  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_memory_reasoning_w{i}.json"`
+  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nOutput path: {output_prefix}_user_mental_model_w{i}.json"`
 
 **mode `"batch"`**: for each `session` object in `sessions`:
 - If `session.window_paths` is empty → dispatch as **single** using `session.parsed_path` and `session.output_prefix`.
