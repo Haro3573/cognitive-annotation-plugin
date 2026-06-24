@@ -37,4 +37,50 @@ Annotate HUMAN turns only. When you have finalized your extractions, call `submi
 - `parsed_path`: provided at the end of your prompt
 - `excerpts`: a JSON object with keys `knowledge_of_limits`, `confidence_calibration`, `error_monitoring`, `monitoring_control_coupling`, and `null_findings`
 
-Each item in the behavior arrays must have: `excerpt`, `turn`, `confidence`, `rationale`, `mundane_alternative`.
+Each call to `submit_cognitive_annotations` must use exactly this structure
+(values in quotes are type/constraint descriptions, not literals):
+
+```json
+{
+  "knowledge_of_limits": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0",
+      "rationale": "STRING — quote the explicit acknowledgment of a knowledge or capability gap",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "confidence_calibration": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0 — require explicit probability, comparison, or stated basis; hedge words alone do not qualify",
+      "rationale": "STRING — quote the probability, comparison, or basis that makes this calibration rather than hedging",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "error_monitoring": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0",
+      "rationale": "STRING — name the erroneous AI statement the user detected",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "monitoring_control_coupling": [
+    {
+      "monitoring": "STRING — exact quoted user text of the monitoring event",
+      "control": "STRING — exact quoted user text of the resulting strategy adjustment (must be within 1–2 turns)",
+      "turn": "INTEGER — 0-indexed turn number of the monitoring event",
+      "confidence": "FLOAT 0.0–1.0 — only populate when causal link is explicit or strongly implied",
+      "rationale": "STRING — verify control turn is within 1–2 turns and state the traceable causal link",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "null_findings": {
+    "<subcategory_name>": "STRING — reason no candidates found after thorough search"
+  }
+}
+```
