@@ -24,7 +24,7 @@ For domain knowledge, classify level: `common_in_domain`, `specialist`, or `expe
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
 **Per-excerpt fields:** For each excerpt, populate these fields in the JSON item:
-- `quote`: the exact quoted user text
+- `excerpt`: the exact quoted user text
 - `turn`: integer turn index
 - `confidence`: 0.0–1.0
 - `rationale`: quote the premise, conclusion, source/target domains, or instance set that makes the inference structure visible; note any alternative type you considered; if this is a correction of or direct response to an AI claim, note the AI statement being responded to
@@ -40,4 +40,61 @@ Annotate HUMAN turns only. When you have finalized your extractions, call `submi
 - `parsed_path`: provided at the end of your prompt
 - `excerpts`: a JSON object with keys `domain_knowledge_injection`, `reasoning_patterns` (containing `deductive`, `inductive`, `abductive`, `analogical`), and `null_findings`
 
-Each item in the behavior arrays must have: `quote`, `turn`, `confidence`, `rationale`, `mundane_alternative`.
+Each call to `submit_cognitive_annotations` must use exactly this structure
+(values in quotes are type/constraint descriptions, not literals):
+
+```json
+{
+  "domain_knowledge_injection": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "knowledge_level": "STRING — one of: 'common_in_domain', 'specialist', 'expert_level'",
+      "confidence": "FLOAT 0.0–1.0",
+      "rationale": "STRING — distinguish *use* of knowledge from mere mention; note what makes this specialist/expert rather than general",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "reasoning_patterns": {
+    "deductive": [
+      {
+        "excerpt": "STRING — exact quoted user text",
+        "turn": "INTEGER — 0-indexed turn number",
+        "confidence": "FLOAT 0.0–1.0 — only label deductive if you can quote explicit premises and a necessary conclusion",
+        "rationale": "STRING — quote the premises and the conclusion that follows necessarily from them",
+        "mundane_alternative": "STRING — simplest non-cognitive explanation"
+      }
+    ],
+    "inductive": [
+      {
+        "excerpt": "STRING — exact quoted user text",
+        "turn": "INTEGER — 0-indexed turn number",
+        "confidence": "FLOAT 0.0–1.0 — requires multiple instances; single examples do not qualify",
+        "rationale": "STRING — name the multiple instances and the pattern drawn from them",
+        "mundane_alternative": "STRING — simplest non-cognitive explanation"
+      }
+    ],
+    "abductive": [
+      {
+        "excerpt": "STRING — exact quoted user text",
+        "turn": "INTEGER — 0-indexed turn number",
+        "confidence": "FLOAT 0.0–1.0",
+        "rationale": "STRING — name the observed fact and the hypothesis offered as best explanation",
+        "mundane_alternative": "STRING — simplest non-cognitive explanation"
+      }
+    ],
+    "analogical": [
+      {
+        "excerpt": "STRING — exact quoted user text",
+        "turn": "INTEGER — 0-indexed turn number",
+        "confidence": "FLOAT 0.0–1.0 — requires source domain, target domain, and shared relational structure; surface similarity alone does not qualify",
+        "rationale": "STRING — name the source domain, target domain, and the relational structure mapped between them",
+        "mundane_alternative": "STRING — simplest non-cognitive explanation"
+      }
+    ]
+  },
+  "null_findings": {
+    "<subcategory_name>": "STRING — reason no candidates found (e.g. 'reasoning_patterns.analogical: no source-to-target mappings identified')"
+  }
+}
+```
