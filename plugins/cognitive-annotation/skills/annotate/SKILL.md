@@ -5,8 +5,6 @@ model: haiku
 
 You are a 4-agent cognitive annotation pipeline. Run all steps for every session.
 
-**For batch runs** (`mode: "batch"` returned in Step 1): call `batch_start`, then dispatch a fresh subagent per session (each handles agents + persist internally), calling `batch_advance` between sessions; run Steps 4–5 once after all sessions complete.
-
 ---
 
 **Step 1 — Resolve transcript**
@@ -17,45 +15,19 @@ Call `resolve_transcript` with `argument = "$ARGUMENTS"`.
 - `status == "error"` → show the error and stop.
 - `status == "pick"` and `$ARGUMENTS` is non-empty → show the message and stop (the argument wasn't a valid session file).
 - `status == "pick"` and `$ARGUMENTS` is empty → call `queue_all_sessions` (no args) first, then call `resolve_transcript` again with `argument = ""`. If the second call also returns `pick` (nothing available to queue), show the message and stop.
-- `status == "ready"` → proceed to Step 2 using the `mode` field.
+- `status == "ready"` → proceed to Step 2 using `sessions` and `count`.
 
 ---
 
-**Step 2 — Extract cognitive behaviors + generate summary (agents in parallel)**
+**Step 2 — Extract cognitive behaviors + generate summary (batch coordinator)**
 
-Use `output_prefix` from the Step 1 result — do not construct temp paths manually.
-
-**mode `"single"`**: dispatch all 5 agents simultaneously using `parsed_path`, `conversation_name`, and `output_prefix`:
-
-- **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
-- **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
-- **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
-- **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {parsed_path}\n\nconversation_name: {conversation_name}\nparsed_path: {parsed_path}"`
-- **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
-
-**mode `"windowed"`**: for each path in `window_paths` sequentially (position index i starting at 0), dispatch all 4 annotation agents in parallel. Additionally, dispatch the **summarizer once on `parsed_path`** (not per window) alongside window 0's agents:
-
-- For window 0 (i=0), dispatch all 5 in parallel:
-  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
-  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
-  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
-  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[0]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[0]}"`
-  - **summarizer**: `"Read transcript from: {parsed_path}\n\nOutput path: {output_prefix}_summary.json"`
-- For each subsequent window (i>0), dispatch the 4 annotation agents in parallel (no summarizer):
-  - **executive-function**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
-  - **metacognition**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
-  - **memory-reasoning**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
-  - **user-mental-model**: `"Annotate HUMAN turns only — skip any turn where context_only is true.\n\nRead transcript from: {window_paths[i]}\n\nconversation_name: {conversation_name}\nparsed_path: {window_paths[i]}"`
-
-**mode `"batch"`**:
-
-**Step 2-batch-A — Start coordinator**
+**Step 2-A — Start coordinator**
 
 Call `batch_start` with `sessions` from Step 1.
-- If response has `done: true` → skip to Step 5 and show `summary_md`.
+- If response has `done: true` → skip to Step 4 and show `summary_md`.
 - Otherwise record `job_id` and `next_session`.
 
-**Step 2-batch-B — Per-session subagent loop**
+**Step 2-B — Per-session subagent loop**
 
 While `next_session` is available:
 
@@ -94,23 +66,12 @@ While `next_session` is available:
 
 ---
 
-**Step 3 — Persist** *(single and windowed modes only — batch handles persist inside each subagent)*
+**Step 3 — Update wiki**
 
-Call `persist_annotation` with:
-- `output_prefix` — the value from Step 1
-
----
-
-**Step 4 — Update wiki**
-
-Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s).
-
-- **Single/windowed**: call immediately after Step 3.
-- **Batch**: call once after all sessions complete (not per-session — defers overview rebuild to the end).
+Invoke `/cognitive-annotation:wiki-ingest` to sync the wiki with the newly annotated session(s). Call once after all sessions complete (not per-session — defers overview rebuild to the end).
 
 ---
 
-**Step 5 — Output**
+**Step 4 — Output**
 
-- **Single/windowed**: show the `persist_annotation` summary, then the wiki ingest summary.
-- **Batch**: display the `summary_md` returned by the final `batch_advance` call, then the wiki-ingest summary.
+Display the `summary_md` returned by the final `batch_advance` call (or `batch_start` if sessions was empty), then the wiki-ingest summary.
