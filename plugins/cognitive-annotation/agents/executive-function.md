@@ -34,4 +34,40 @@ Annotate HUMAN turns only. When you have finalized your extractions, call `submi
 - `parsed_path`: provided at the end of your prompt
 - `excerpts`: a JSON object with keys `planning_behavior`, `inhibition_behavior`, `shifting_behavior`, and `null_findings`
 
-Each item in the behavior arrays must have: `excerpt`, `turn`, `confidence`, `rationale`, `mundane_alternative`.
+Each call to `submit_cognitive_annotations` must use exactly this structure
+(values in quotes are type/constraint descriptions, not literals):
+
+```json
+{
+  "planning_behavior": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0 — extract at ≥0.3; reserve high scores for clear structural cues",
+      "rationale": "STRING — quote the ordered steps, dependencies, or sequencing signal that justifies the label",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation; omit excerpt if this is more plausible"
+    }
+  ],
+  "inhibition_behavior": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0",
+      "rationale": "STRING — name the AI expansion or off-topic move being blocked",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "shifting_behavior": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "confidence": "FLOAT 0.0–1.0",
+      "rationale": "STRING — name the blocking event or completed task that caused the pivot",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "null_findings": {
+    "<subcategory_name>": "STRING — reason no candidates found after thorough search (only include subcategories with zero extractions)"
+  }
+}
+```
