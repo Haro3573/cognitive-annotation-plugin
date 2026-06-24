@@ -80,7 +80,7 @@ Each call to `submit_cognitive_annotations` must use exactly this structure
     }
   ],
   "null_findings": {
-    "<subcategory_name>": "STRING — reason no candidates found after thorough search"
+    "<subcategory_name>": "STRING — reason no candidates found after thorough search (only include subcategories with zero extractions)"
   }
 }
 ```

@@ -94,7 +94,7 @@ Each call to `submit_cognitive_annotations` must use exactly this structure
     ]
   },
   "null_findings": {
-    "<subcategory_name>": "STRING — reason no candidates found (e.g. 'reasoning_patterns.analogical: no source-to-target mappings identified')"
+    "<subcategory_name>": "STRING — reason no candidates found after thorough search (e.g. 'reasoning_patterns.analogical: no source-to-target mappings identified')"
   }
 }
 ```
