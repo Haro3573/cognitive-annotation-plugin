@@ -25,7 +25,7 @@ Persuasion is not mere disagreement. The user must offer *reasons, evidence, or 
 Extract all candidate behaviors, even at low confidence (≥ 0.3). Reserve `null_findings` only for categories where you found zero candidates after thorough search. Do not extract just to fill every sub-category type.
 
 **Per-excerpt fields:** For each excerpt, populate these fields in the JSON item:
-- `user_action`: the exact quoted or closely paraphrased user text
+- `excerpt`: the exact quoted or closely paraphrased user text
 - `turn`: integer turn index
 - `confidence`: 0.0–1.0
 - `rationale`: why the label applies — for system model updates, state the inferred property and the action taken in response, and note the specific AI behavior that revealed the inferred property; for cooperation/persuasion, state the specific AI contribution being accepted or contested
@@ -41,4 +41,33 @@ Annotate HUMAN turns only. When you have finalized your extractions, call `submi
 - `parsed_path`: provided at the end of your prompt
 - `excerpts`: a JSON object with keys `system_model_updates`, `cooperation_and_persuasion`, and `null_findings`
 
-Each item in the behavior arrays must have: `user_action`, `turn`, `confidence`, `rationale`, `mundane_alternative`.
+Each call to `submit_cognitive_annotations` must use exactly this structure
+(values in quotes are type/constraint descriptions, not literals):
+
+```json
+{
+  "system_model_updates": [
+    {
+      "excerpt": "STRING — exact quoted or closely paraphrased user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "inferred_property": "STRING — the AI capability, limitation, or knowledge boundary the user's action reveals",
+      "confidence": "FLOAT 0.0–1.0 — providing context is not sufficient; action must be responsive to an inferred property",
+      "rationale": "STRING — state the inferred property, the action taken in response, and the specific AI behavior that revealed it",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "cooperation_and_persuasion": [
+    {
+      "excerpt": "STRING — exact quoted user text",
+      "turn": "INTEGER — 0-indexed turn number",
+      "sub_type": "STRING — one of: 'cooperation', 'persuasion', 'mixed'",
+      "confidence": "FLOAT 0.0–1.0 — persuasion requires reasons/evidence/reframing, not mere disagreement",
+      "rationale": "STRING — name the specific AI contribution being accepted or contested",
+      "mundane_alternative": "STRING — simplest non-cognitive explanation"
+    }
+  ],
+  "null_findings": {
+    "<subcategory_name>": "STRING — reason no candidates found after thorough search"
+  }
+}
+```
